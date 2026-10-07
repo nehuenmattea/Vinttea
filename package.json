@@ -2,6 +2,7 @@
   "name": "vinttea",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Control remoto de streaming desde el celular para PC",
   "scripts": {
     "build": "pnpm -r run build",
