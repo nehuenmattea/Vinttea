@@ -120,6 +120,11 @@ export default defineContentScript({
           case 'prevEpisode':
             adapter.prevEpisode();
             break;
+          case 'skipIntro':
+            if (adapter.skipIntro) {
+              adapter.skipIntro();
+            }
+            break;
           case 'requestState':
             break;
         }

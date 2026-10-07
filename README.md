@@ -111,16 +111,21 @@ Este comando compilará `@vinttea/shared`, la extensión en `packages/extension/
    ```
 5. La extensión quedará lista y se conectará automáticamente al servidor local en segundo plano.
 
-### 4. Iniciar el Servidor
+### 4. Iniciar el Servidor (¡Sin comandos!)
 
-```powershell
-pnpm dev
+Para usuarios comunes y corrientes, simplemente haz **doble clic en:**
 ```
+iniciar.bat
+```
+*(O si prefieres la terminal, ejecuta `pnpm dev`)*
 
-En la consola se mostrará:
-- La dirección local de la PC: `http://localhost:9876`
-- La dirección de red para el celular: `http://192.168.x.x:9876`
-- **Un código QR generado en la terminal:** escanéalo con la cámara de tu celular (conectado al mismo WiFi).
+El iniciador:
+- Arrancará el servidor automáticamente.
+- Abrirá tu navegador en la página de prueba.
+- Te mostrará en la ventana:
+  - La dirección local de la PC: `http://localhost:9876`
+  - La dirección de red para tu celular: `http://192.168.x.x:9876`
+  - **Un código QR en la consola:** escanéalo con la cámara de tu celular (conectado al mismo WiFi).
 
 ---
 

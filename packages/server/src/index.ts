@@ -316,12 +316,36 @@ function getVideoTestPageHtml(): string {
   <p class="lead">Esta página permite probar el control remoto de reproducción con la extensión instalada.</p>
 
   <div class="card">
-    <span class="badge">REPRODUCTOR HTML5 ACTIVO</span>
-    <video id="testVideo" controls playsinline>
-      <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
-      Tu navegador no soporta video HTML5.
-    </video>
-    <div style="margin-top: 12px; display: flex; justify-content: space-between;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <span class="badge">REPRODUCTOR HTML5 ACTIVO</span>
+      <button id="toggleSkipSimBtn" onclick="toggleSkipSimulation()" style="background: #252a3b; border: 1px solid #3b4258; color: #f3f4f6; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600;">
+        ⚡ Simular aparición de "Omitir intro"
+      </button>
+    </div>
+
+    <div style="position: relative;">
+      <video id="testVideo" controls playsinline>
+        <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
+        Tu navegador no soporta video HTML5.
+      </video>
+
+      <!-- Boton de Omitir Intro simulado -->
+      <button id="testSkipBtn" class="watch-video--skip-content-button vilos-skip-intro" onclick="onSkipClicked()" style="display: none; position: absolute; bottom: 60px; right: 24px; background: rgba(229, 9, 20, 0.95); color: #fff; border: 2px solid #fff; padding: 10px 18px; border-radius: 8px; font-weight: 800; font-size: 0.95rem; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.6); z-index: 10;">
+        ⏩ Omitir intro
+      </button>
+    </div>
+
+    <!-- Simulación de metadatos de serie y episodio -->
+    <div style="margin-top: 14px; padding: 10px; background: #12141e; border-radius: 8px; border: 1px solid #252a3b;">
+      <div data-t="show-title" style="color: #ff640a; font-weight: 800; font-size: 0.9rem; text-transform: uppercase;">
+        📺 Anime de Prueba (Vinttea Demo)
+      </div>
+      <div data-t="episode-title" style="color: #ffffff; font-weight: 700; font-size: 1.1rem; margin-top: 2px;">
+        Episodio 12: La batalla final
+      </div>
+    </div>
+
+    <div style="margin-top: 12px; display: flex; justify-content: space-between; font-weight: 600;">
       <span id="videoStatus">Estado: Pausado</span>
       <span id="timeStatus">0:00 / 0:00</span>
     </div>
@@ -341,7 +365,7 @@ function getVideoTestPageHtml(): string {
       <li>Activa el <strong>"Modo de desarrollador"</strong> (arriba a la derecha).</li>
       <li>Haz clic en <strong>"Cargar descomprimida"</strong> (Load unpacked).</li>
       <li>Selecciona la carpeta: <code>packages/extension/.output/chrome-mv3</code></li>
-      <li>Abre esta pestaña de prueba o un video de <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" style="color: #60a5fa;">YouTube</a>.</li>
+      <li>Abre esta pestaña de prueba o un video de <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" style="color: #60a5fa;">YouTube</a>, <a href="https://www.netflix.com" target="_blank" style="color: #e50914;">Netflix</a> o <a href="https://www.crunchyroll.com" target="_blank" style="color: #ff640a;">Crunchyroll</a>.</li>
       <li>Abre la app del celular escaneando el código QR en la consola o visitando la URL local.</li>
       <li>Presiona <strong>Play / Pausa</strong> o <strong>±10s</strong> en tu celular y observa la magia en la pantalla.</li>
     </ol>
@@ -352,11 +376,28 @@ function getVideoTestPageHtml(): string {
     const log = document.getElementById('eventLog');
     const videoStatus = document.getElementById('videoStatus');
     const timeStatus = document.getElementById('timeStatus');
+    const skipBtn = document.getElementById('testSkipBtn');
 
     function addLog(msg) {
       const now = new Date().toTimeString().split(' ')[0];
       log.innerHTML += '<div>[' + now + '] ' + msg + '</div>';
       log.scrollTop = log.scrollHeight;
+    }
+
+    function toggleSkipSimulation() {
+      if (skipBtn.style.display === 'none') {
+        skipBtn.style.display = 'block';
+        addLog('⚡ Simulación: Botón "Omitir intro" apareció en pantalla');
+      } else {
+        skipBtn.style.display = 'none';
+        addLog('⚡ Simulación: Botón "Omitir intro" se ocultó');
+      }
+    }
+
+    function onSkipClicked() {
+      addLog('⏩ ¡COMANDO OMITIR INTRO EJECUTADO CON ÉXITO! Saltando 30 segundos...');
+      v.currentTime = Math.min(v.duration || 0, v.currentTime + 30);
+      skipBtn.style.display = 'none';
     }
 
     v.addEventListener('play', () => {
