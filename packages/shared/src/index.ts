@@ -4,13 +4,19 @@
 export interface PlayerState {
   playing: boolean;
   title: string;
+  series?: string;       // Nombre de la serie o anime si aplica
+  episode?: string;      // "T1:E3 - Título" o "Episodio 24"
   position: number;     // seconds
   duration: number;     // seconds
   volume: number;       // 0.0 to 1.0
   muted: boolean;
   fullscreen?: boolean;
-  service?: 'youtube' | 'netflix' | 'crunchyroll' | 'prime' | 'generic' | string;
+  service?: 'youtube' | 'youtubemusic' | 'netflix' | 'crunchyroll' | 'prime' | 'generic' | string;
   playbackRate?: number;
+  skipButton?: {
+    visible: boolean;
+    text: string;       // "Omitir intro", "Omitir resumen", etc.
+  };
   updatedAt?: number;   // timestamp ms
 }
 
@@ -29,6 +35,7 @@ export type CommandAction =
   | 'toggleFullscreen'
   | 'nextEpisode'
   | 'prevEpisode'
+  | 'skipIntro'         // Omitir intro o resumen
   | 'requestState';
 
 export type ClientRole = 'remote' | 'extension' | 'web-tester';
@@ -108,6 +115,7 @@ export interface SiteAdapter {
   toggleFullscreen?(): Promise<void> | void;
   nextEpisode(): Promise<void> | void;
   prevEpisode(): Promise<void> | void;
+  skipIntro?(): Promise<void> | void;
   getState(): PlayerState | null;
 }
 

@@ -1,5 +1,17 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import type { PlayerState, CommandAction, VintteaMessage } from '@vinttea/shared';
+import {
+  IconPlay,
+  IconPause,
+  IconRewind10,
+  IconForward10,
+  IconSkipBack,
+  IconSkipForward,
+  IconVolume,
+  IconVolumeMute,
+  IconFullscreen,
+  IconFastForward,
+} from './icons';
 
 function formatTime(secs: number): string {
   if (!secs || isNaN(secs)) return '0:00';
@@ -7,6 +19,52 @@ function formatTime(secs: number): string {
   const s = Math.floor(secs % 60);
   return `${m}:${s < 10 ? '0' : ''}${s}`;
 }
+
+interface ServiceConfig {
+  name: string;
+  badgeBg: string;
+  badgeColor: string;
+  accent: string;
+}
+
+const SERVICE_CONFIGS: Record<string, ServiceConfig> = {
+  netflix: {
+    name: 'Netflix',
+    badgeBg: 'rgba(229, 9, 20, 0.15)',
+    badgeColor: '#e50914',
+    accent: '#e50914',
+  },
+  crunchyroll: {
+    name: 'Crunchyroll',
+    badgeBg: 'rgba(255, 100, 10, 0.15)',
+    badgeColor: '#ff640a',
+    accent: '#ff640a',
+  },
+  youtube: {
+    name: 'YouTube',
+    badgeBg: 'rgba(255, 0, 0, 0.15)',
+    badgeColor: '#ff2d2d',
+    accent: '#ff0000',
+  },
+  youtubemusic: {
+    name: 'YouTube Music',
+    badgeBg: 'rgba(255, 0, 51, 0.18)',
+    badgeColor: '#ff0033',
+    accent: '#ff0033',
+  },
+  prime: {
+    name: 'Prime Video',
+    badgeBg: 'rgba(0, 168, 225, 0.15)',
+    badgeColor: '#00a8e1',
+    accent: '#00a8e1',
+  },
+  generic: {
+    name: 'Reproductor Web',
+    badgeBg: 'rgba(99, 102, 241, 0.15)',
+    badgeColor: '#818cf8',
+    accent: '#6366f1',
+  },
+};
 
 export function App() {
   const [serverConnected, setServerConnected] = useState(false);
@@ -18,7 +76,8 @@ export function App() {
     duration: 0,
     volume: 1,
     muted: false,
-    service: 'Esperando',
+    service: 'generic',
+    skipButton: { visible: false, text: 'Omitir intro' },
   });
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -27,7 +86,6 @@ export function App() {
     let reconnectTimer: any = null;
 
     function connect() {
-      // Connect to server port 9876
       const host = window.location.hostname || 'localhost';
       const wsUrl = `ws://${host}:9876/ws?role=remote`;
 
@@ -83,19 +141,40 @@ export function App() {
   const progressPercent =
     state.duration > 0 ? Math.min(100, Math.max(0, (state.position / state.duration) * 100)) : 0;
 
+  const currentService = SERVICE_CONFIGS[state.service || 'generic'] || SERVICE_CONFIGS.generic;
+  const isSkipVisible = !!state.skipButton?.visible;
+  const skipText = state.skipButton?.text || 'Omitir intro';
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Header */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Top Header */}
       <header
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '8px 4px',
+          padding: '6px 2px',
         }}
       >
-        <div style={{ fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.5px' }}>
-          Vint<span style={{ color: 'var(--accent)' }}>tea</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: '1.45rem', fontWeight: 900, letterSpacing: '-0.5px' }}>
+            Vint<span style={{ color: currentService.accent }}>tea</span>
+          </span>
+          <span
+            style={{
+              padding: '3px 8px',
+              borderRadius: 6,
+              fontSize: '0.68rem',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              background: currentService.badgeBg,
+              color: currentService.badgeColor,
+              border: `1px solid ${currentService.badgeColor}33`,
+            }}
+          >
+            {currentService.name}
+          </span>
         </div>
 
         <div
@@ -134,76 +213,155 @@ export function App() {
         </div>
       </header>
 
-      {/* Now Playing Card */}
+      {/* Now Playing Media Card */}
       <div
         style={{
           background: 'var(--card)',
           border: '1px solid var(--card-border)',
-          borderRadius: 18,
-          padding: 20,
+          borderRadius: 20,
+          padding: '20px 18px',
           display: 'flex',
           flexDirection: 'column',
           gap: 12,
+          position: 'relative',
+          overflow: 'hidden',
         }}
       >
-        <div
-          style={{
-            fontSize: '0.75rem',
-            fontWeight: 800,
-            color: 'var(--accent)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-          }}
-        >
-          {state.service || 'VIDEO'}
-        </div>
-
-        <div
-          style={{
-            fontSize: '1.15rem',
-            fontWeight: 700,
-            lineHeight: 1.3,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {state.title}
-        </div>
-
-        {/* Progress Bar */}
-        <div
-          style={{
-            width: '100%',
-            height: 6,
-            background: '#2d3345',
-            borderRadius: 3,
-            position: 'relative',
-            marginTop: 4,
-          }}
-        >
+        {/* Series or Channel Name */}
+        {state.series && (
           <div
             style={{
-              width: `${progressPercent}%`,
-              height: '100%',
-              background: 'var(--accent)',
-              borderRadius: 3,
-              transition: 'width 0.3s ease',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              color: currentService.accent,
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
             }}
-          />
+          >
+            <span>📺</span> {state.series}
+          </div>
+        )}
+
+        {/* Main Title or Episode Name */}
+        <div>
+          <div
+            style={{
+              fontSize: state.series ? '1.25rem' : '1.15rem',
+              fontWeight: 800,
+              lineHeight: 1.25,
+              color: '#ffffff',
+              wordBreak: 'break-word',
+            }}
+          >
+            {state.episode || state.title || 'Esperando reproducción...'}
+          </div>
+
+          {state.episode && state.title && state.title !== state.episode && (
+            <div
+              style={{
+                fontSize: '0.85rem',
+                color: 'var(--text-muted)',
+                marginTop: 4,
+                fontWeight: 500,
+              }}
+            >
+              {state.title}
+            </div>
+          )}
         </div>
 
-        <div
+        {/* Progress Bar & Timestamps */}
+        <div style={{ marginTop: 6 }}>
+          <div
+            style={{
+              width: '100%',
+              height: 6,
+              background: '#2b3044',
+              borderRadius: 3,
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                width: `${progressPercent}%`,
+                height: '100%',
+                background: currentService.accent,
+                borderRadius: 3,
+                transition: 'width 0.3s ease',
+              }}
+            />
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: '0.78rem',
+              color: 'var(--text-muted)',
+              marginTop: 6,
+              fontWeight: 600,
+            }}
+          >
+            <span>{formatTime(state.position)}</span>
+            <span>{formatTime(state.duration)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Dynamic OMITIR INTRO / RESUMEN Button */}
+      <div style={{ width: '100%' }}>
+        <button
+          onClick={() => sendCommand('skipIntro')}
+          disabled={!isSkipVisible}
           style={{
+            width: '100%',
+            padding: '14px 16px',
+            borderRadius: 14,
+            border: isSkipVisible
+              ? `1.5px solid ${currentService.accent}`
+              : '1px solid var(--card-border)',
+            background: isSkipVisible
+              ? `linear-gradient(135deg, ${currentService.accent}22, ${currentService.accent}44)`
+              : '#161924',
+            color: isSkipVisible ? '#ffffff' : '#6b7280',
+            fontWeight: 700,
+            fontSize: '0.95rem',
             display: 'flex',
-            justifyContent: 'space-between',
-            fontSize: '0.8rem',
-            color: 'var(--text-muted)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 10,
+            cursor: isSkipVisible ? 'pointer' : 'default',
+            opacity: isSkipVisible ? 1 : 0.45,
+            transition: 'all 0.25s ease',
+            boxShadow: isSkipVisible
+              ? `0 0 16px ${currentService.accent}44`
+              : 'none',
           }}
         >
-          <span>{formatTime(state.position)}</span>
-          <span>{formatTime(state.duration)}</span>
-        </div>
+          <IconFastForward
+            size={20}
+            color={isSkipVisible ? currentService.accent : '#6b7280'}
+          />
+          <span>{skipText}</span>
+          {isSkipVisible && (
+            <span
+              style={{
+                fontSize: '0.65rem',
+                padding: '2px 6px',
+                borderRadius: 4,
+                background: currentService.accent,
+                color: '#fff',
+                marginLeft: 4,
+              }}
+            >
+              DISPONIBLE
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Primary Media Controls */}
@@ -211,19 +369,16 @@ export function App() {
         style={{
           background: 'var(--card)',
           border: '1px solid var(--card-border)',
-          borderRadius: 18,
-          padding: 18,
+          borderRadius: 20,
+          padding: 16,
           display: 'flex',
           flexDirection: 'column',
           gap: 12,
         }}
       >
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 1fr', gap: 12 }}>
-          <button
-            onClick={() => sendCommand('seek', -10)}
-            style={btnStyle}
-          >
-            <span style={{ fontSize: '1.4rem' }}>⏪</span>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.25fr 1fr', gap: 10 }}>
+          <button onClick={() => sendCommand('seek', -10)} style={btnStyle}>
+            <IconRewind10 size={26} />
             <span style={btnLabelStyle}>-10s</span>
           </button>
 
@@ -231,79 +386,93 @@ export function App() {
             onClick={() => sendCommand('togglePlay')}
             style={{
               ...btnStyle,
-              background: 'var(--accent)',
-              borderColor: 'var(--accent)',
-              boxShadow: '0 4px 18px var(--accent-glow)',
+              background: currentService.accent,
+              borderColor: currentService.accent,
+              boxShadow: `0 4px 20px ${currentService.accent}44`,
             }}
           >
-            <span style={{ fontSize: '1.8rem' }}>{state.playing ? '⏸' : '▶'}</span>
-            <span style={{ ...btnLabelStyle, color: '#fff', fontWeight: 700 }}>
-              {state.playing ? 'Pausar' : 'Reproducir'}
+            {state.playing ? (
+              <IconPause size={32} color="#ffffff" />
+            ) : (
+              <IconPlay size={32} color="#ffffff" />
+            )}
+            <span style={{ ...btnLabelStyle, color: '#ffffff', fontWeight: 700 }}>
+              {state.playing ? 'Pausa' : 'Play'}
             </span>
           </button>
 
-          <button
-            onClick={() => sendCommand('seek', 10)}
-            style={btnStyle}
-          >
-            <span style={{ fontSize: '1.4rem' }}>⏩</span>
+          <button onClick={() => sendCommand('seek', 10)} style={btnStyle}>
+            <IconForward10 size={26} />
             <span style={btnLabelStyle}>+10s</span>
           </button>
         </div>
 
-        {/* Next & Prev Episode */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 4 }}>
-          <button
-            onClick={() => sendCommand('prevEpisode')}
-            style={btnStyle}
-          >
-            <span style={{ fontSize: '1.2rem' }}>⏮️</span>
+        {/* Previous & Next Episode */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <button onClick={() => sendCommand('prevEpisode')} style={btnStyle}>
+            <IconSkipBack size={20} />
             <span style={btnLabelStyle}>Anterior</span>
           </button>
 
-          <button
-            onClick={() => sendCommand('nextEpisode')}
-            style={btnStyle}
-          >
-            <span style={{ fontSize: '1.2rem' }}>⏭️</span>
+          <button onClick={() => sendCommand('nextEpisode')} style={btnStyle}>
+            <IconSkipForward size={20} />
             <span style={btnLabelStyle}>Siguiente</span>
           </button>
         </div>
       </div>
 
-      {/* Audio & Display Controls */}
+      {/* Audio & Fullscreen Controls */}
       <div
         style={{
           background: 'var(--card)',
           border: '1px solid var(--card-border)',
-          borderRadius: 18,
-          padding: 18,
+          borderRadius: 20,
+          padding: 16,
           display: 'flex',
           flexDirection: 'column',
           gap: 14,
         }}
       >
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <button
-            onClick={() => sendCommand('toggleMute')}
-            style={btnStyle}
-          >
-            <span style={{ fontSize: '1.3rem' }}>{state.muted ? '🔇' : '🔊'}</span>
-            <span style={btnLabelStyle}>{state.muted ? 'Desmutear' : 'Silenciar'}</span>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <button onClick={() => sendCommand('toggleMute')} style={btnStyle}>
+            {state.muted ? (
+              <IconVolumeMute size={22} color="#f87171" />
+            ) : (
+              <IconVolume size={22} />
+            )}
+            <span style={btnLabelStyle}>{state.muted ? 'Silenciado' : 'Mute'}</span>
           </button>
 
           <button
             onClick={() => sendCommand('toggleFullscreen')}
-            style={btnStyle}
+            style={{
+              ...btnStyle,
+              background: state.fullscreen ? 'rgba(99, 102, 241, 0.2)' : undefined,
+              borderColor: state.fullscreen ? '#6366f1' : undefined,
+            }}
           >
-            <span style={{ fontSize: '1.3rem' }}>⛶</span>
-            <span style={btnLabelStyle}>Pantalla completa</span>
+            <IconFullscreen size={22} color={state.fullscreen ? '#818cf8' : undefined} />
+            <span style={btnLabelStyle}>
+              {state.fullscreen ? 'Salir pantalla' : 'Pantalla compl.'}
+            </span>
           </button>
         </div>
 
         {/* Volume Slider */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '4px 6px' }}>
-          <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>🔉</span>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: '6px 8px',
+            background: '#12151f',
+            borderRadius: 12,
+            border: '1px solid var(--card-border)',
+          }}
+        >
+          <span style={{ display: 'flex', color: 'var(--text-muted)' }}>
+            <IconVolume size={18} />
+          </span>
           <input
             type="range"
             min="0"
@@ -315,12 +484,22 @@ export function App() {
             }}
             style={{
               flex: 1,
-              accentColor: 'var(--accent)',
+              accentColor: currentService.accent,
               cursor: 'pointer',
               height: 6,
             }}
           />
-          <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>🔊</span>
+          <span
+            style={{
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              minWidth: 32,
+              textAlign: 'right',
+              color: 'var(--text-muted)',
+            }}
+          >
+            {state.muted ? '0%' : `${Math.round(state.volume * 100)}%`}
+          </span>
         </div>
       </div>
     </div>
@@ -330,9 +509,9 @@ export function App() {
 const btnStyle = {
   background: '#1d2232',
   border: '1px solid var(--card-border)',
-  color: '#fff',
+  color: '#f3f4f6',
   borderRadius: 14,
-  padding: '16px 10px',
+  padding: '14px 10px',
   cursor: 'pointer',
   display: 'flex',
   flexDirection: 'column' as const,
@@ -340,11 +519,11 @@ const btnStyle = {
   justifyContent: 'center',
   gap: 6,
   userSelect: 'none' as const,
-  transition: 'transform 0.1s, background 0.15s',
+  transition: 'transform 0.1s, background 0.15s, border-color 0.15s',
 };
 
 const btnLabelStyle = {
-  fontSize: '0.8rem',
+  fontSize: '0.78rem',
   color: 'var(--text-muted)',
-  fontWeight: 500,
+  fontWeight: 600,
 };
