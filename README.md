@@ -16,7 +16,6 @@ Olvídate de levantarte del sillón o la cama para pausar, adelantar o cambiar d
 - [Características](#-características)
 - [Arquitectura](#-arquitectura)
 - [Estructura del Monorepo](#-estructura-del-monorepo)
-- [📖 Guía de Conceptos para Principiantes](docs/GUIA_CONCEPTOS.md)
 - [Requisitos Previos](#-requisitos-previos)
 - [Instalación y Puesta en Marcha](#-instalación-y-puesta-en-marcha)
 - [Guía de Pruebas](#-guía-de-pruebas)
