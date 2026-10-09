@@ -23,8 +23,6 @@ Olvídate de levantarte del sillón o la cama para pausar, adelantar o cambiar d
 - [Roadmap del Proyecto](#-roadmap-del-proyecto)
 - [Licencia](#-licencia)
 
-> 💡 **¿Nuevo en estas tecnologías?** Lee nuestra [**Guía Conceptual y Arquitectura**](docs/GUIA_CONCEPTOS.md) donde explicamos de forma simple qué es una PWA, WebSocket, Preact, Fastify, Manifest V3 y cómo encajan todas las piezas.
-
 ---
 
 ## ✨ Características
