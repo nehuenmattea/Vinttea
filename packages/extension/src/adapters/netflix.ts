@@ -1,5 +1,11 @@
 import type { SiteAdapter, PlayerState } from './types';
-import { simulateKey, findVisibleButton, isElementVisible } from './utils';
+import {
+  simulateKey,
+  findInteractiveButton,
+  clickElementSafely,
+  toggleReliableFullscreen,
+  isFullscreenActive,
+} from './utils';
 import { GenericAdapter } from './generic';
 
 export class NetflixAdapter extends GenericAdapter implements SiteAdapter {
@@ -7,34 +13,34 @@ export class NetflixAdapter extends GenericAdapter implements SiteAdapter {
   name = 'Netflix';
 
   matches(url: string): boolean {
-    return url.includes('netflix.com/watch');
+    return url.includes('netflix.com');
   }
 
   override play(): void {
-    const playBtn = findVisibleButton(['button[data-uia="control-play-pause-play"]']);
+    const playBtn = findInteractiveButton(['button[data-uia="control-play-pause-play"]']);
     if (playBtn) {
-      playBtn.click();
+      clickElementSafely(playBtn);
     } else {
       simulateKey(' ', 'Space', 32);
     }
   }
 
   override pause(): void {
-    const pauseBtn = findVisibleButton(['button[data-uia="control-play-pause-pause"]']);
+    const pauseBtn = findInteractiveButton(['button[data-uia="control-play-pause-pause"]']);
     if (pauseBtn) {
-      pauseBtn.click();
+      clickElementSafely(pauseBtn);
     } else {
       simulateKey(' ', 'Space', 32);
     }
   }
 
   override togglePlay(): void {
-    const btn = findVisibleButton([
+    const btn = findInteractiveButton([
       'button[data-uia="control-play-pause-play"]',
       'button[data-uia="control-play-pause-pause"]',
     ]);
     if (btn) {
-      btn.click();
+      clickElementSafely(btn);
     } else {
       simulateKey(' ', 'Space', 32);
     }
@@ -59,42 +65,49 @@ export class NetflixAdapter extends GenericAdapter implements SiteAdapter {
     }
   }
 
+  override seekTo(seconds: number): void {
+    const video = document.querySelector<HTMLVideoElement>('video');
+    if (!video) return;
+    const diff = seconds - video.currentTime;
+    this.seek(diff);
+  }
+
   override toggleFullscreen(): void {
-    const fsBtn = findVisibleButton([
+    const video = document.querySelector<HTMLVideoElement>('video');
+    const container =
+      document.querySelector<HTMLElement>('.watch-video--player-view') ||
+      video?.parentElement;
+
+    toggleReliableFullscreen(video, container, [
       'button[data-uia="control-fullscreen-enter"]',
       'button[data-uia="control-fullscreen-exit"]',
     ]);
-    if (fsBtn) {
-      fsBtn.click();
-    } else {
-      simulateKey('f', 'KeyF', 70);
-    }
   }
 
   override toggleMute(): void {
-    const muteBtn = findVisibleButton([
+    const muteBtn = findInteractiveButton([
       'button[data-uia="control-volume-high"]',
       'button[data-uia="control-volume-low"]',
       'button[data-uia="control-volume-muted"]',
     ]);
     if (muteBtn) {
-      muteBtn.click();
+      clickElementSafely(muteBtn);
     } else {
       simulateKey('m', 'KeyM', 77);
     }
   }
 
   override nextEpisode(): void {
-    const nextBtn = findVisibleButton(['button[data-uia="control-next"]']);
+    const nextBtn = findInteractiveButton(['button[data-uia="control-next"]']);
     if (nextBtn) {
-      nextBtn.click();
+      clickElementSafely(nextBtn);
     } else {
       simulateKey('n', 'KeyN', 78);
     }
   }
 
   override skipIntro(): void {
-    const skipBtn = findVisibleButton([
+    const skipBtn = findInteractiveButton([
       'button[data-uia="player-skip-intro"]',
       'button[data-uia="player-skip-recap"]',
       '.watch-video--skip-content-button',
@@ -102,7 +115,7 @@ export class NetflixAdapter extends GenericAdapter implements SiteAdapter {
       '.skip-credits > button',
     ]);
     if (skipBtn) {
-      skipBtn.click();
+      clickElementSafely(skipBtn);
     }
   }
 
@@ -130,8 +143,8 @@ export class NetflixAdapter extends GenericAdapter implements SiteAdapter {
       }
     }
 
-    // Detect Skip Intro / Recap button visibility and text
-    const skipBtn = findVisibleButton([
+    // Detect Skip Intro / Recap button visibility and text (active even if controls are faded)
+    const skipBtn = findInteractiveButton([
       'button[data-uia="player-skip-intro"]',
       'button[data-uia="player-skip-recap"]',
       '.watch-video--skip-content-button',
@@ -139,8 +152,13 @@ export class NetflixAdapter extends GenericAdapter implements SiteAdapter {
       '.skip-credits > button',
     ]);
 
-    const skipVisible = !!skipBtn && isElementVisible(skipBtn);
+    const skipVisible = !!skipBtn && skipBtn.isConnected;
     const skipText = skipBtn?.textContent?.trim() || 'Omitir intro';
+
+    const thumbnail =
+      document.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
+      document.querySelector<HTMLImageElement>('.title-card img, .hero-image img')?.src ||
+      baseState.thumbnail;
 
     return {
       ...baseState,
@@ -148,6 +166,8 @@ export class NetflixAdapter extends GenericAdapter implements SiteAdapter {
       series: seriesTitle || undefined,
       episode: episodeTitle || undefined,
       title: episodeTitle ? `${seriesTitle ? seriesTitle + ': ' : ''}${episodeTitle}` : (seriesTitle || baseState.title),
+      fullscreen: isFullscreenActive(),
+      thumbnail,
       skipButton: {
         visible: skipVisible,
         text: skipText,

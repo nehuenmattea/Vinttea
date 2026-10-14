@@ -1,3 +1,9 @@
+export interface EpisodePreview {
+  title?: string;
+  episode?: string;
+  thumbnail?: string;
+}
+
 /**
  * Player state representing current playback in the active streaming tab.
  */
@@ -13,6 +19,9 @@ export interface PlayerState {
   fullscreen?: boolean;
   service?: 'youtube' | 'youtubemusic' | 'netflix' | 'crunchyroll' | 'prime' | 'generic' | string;
   playbackRate?: number;
+  thumbnail?: string;    // Portada / miniatura del video actual
+  prevPreview?: EpisodePreview; // Info y miniatura del episodio anterior
+  nextPreview?: EpisodePreview; // Info y miniatura del episodio siguiente
   skipButton?: {
     visible: boolean;
     text: string;       // "Omitir intro", "Omitir resumen", etc.

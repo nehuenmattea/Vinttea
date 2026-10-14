@@ -1,5 +1,5 @@
 import type { SiteAdapter, PlayerState } from './types';
-import { findVisibleButton } from './utils';
+import { findInteractiveButton, clickElementSafely } from './utils';
 import { GenericAdapter } from './generic';
 
 export class YouTubeMusicAdapter extends GenericAdapter implements SiteAdapter {
@@ -11,24 +11,24 @@ export class YouTubeMusicAdapter extends GenericAdapter implements SiteAdapter {
   }
 
   override nextEpisode(): void {
-    const nextBtn = findVisibleButton([
+    const nextBtn = findInteractiveButton([
       '.next-button',
       'button[aria-label*="Siguiente" i]',
       'button[aria-label*="Next" i]',
     ]);
     if (nextBtn) {
-      nextBtn.click();
+      clickElementSafely(nextBtn);
     }
   }
 
   override prevEpisode(): void {
-    const prevBtn = findVisibleButton([
+    const prevBtn = findInteractiveButton([
       '.previous-button',
       'button[aria-label*="Anterior" i]',
       'button[aria-label*="Previous" i]',
     ]);
     if (prevBtn) {
-      prevBtn.click();
+      clickElementSafely(prevBtn);
     }
   }
 
@@ -45,6 +45,10 @@ export class YouTubeMusicAdapter extends GenericAdapter implements SiteAdapter {
 
     const trackTitle = titleEl?.textContent?.trim() || baseState.title;
     const artist = bylineEl?.textContent?.trim() || '';
+    const thumbnail =
+      document.querySelector<HTMLImageElement>('.image.ytmusic-player-bar img')?.src ||
+      document.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
+      baseState.thumbnail;
 
     return {
       ...baseState,
@@ -52,6 +56,7 @@ export class YouTubeMusicAdapter extends GenericAdapter implements SiteAdapter {
       series: artist || undefined,
       episode: trackTitle || undefined,
       title: artist ? `${artist} - ${trackTitle}` : trackTitle,
+      thumbnail,
     };
   }
 }

@@ -1,4 +1,5 @@
 import type { SiteAdapter, PlayerState } from './types';
+import { toggleReliableFullscreen, isFullscreenActive } from './utils';
 
 export class GenericAdapter implements SiteAdapter {
   id = 'generic';
@@ -73,14 +74,12 @@ export class GenericAdapter implements SiteAdapter {
 
   toggleFullscreen(): void {
     const video = this.getVideoElement();
-    if (!video) return;
-
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
-    } else {
-      const target = video.parentElement || video;
-      target.requestFullscreen().catch(() => {});
-    }
+    toggleReliableFullscreen(video, video?.parentElement, [
+      'button[aria-label*="fullscreen" i]',
+      'button[aria-label*="pantalla completa" i]',
+      'button[title*="fullscreen" i]',
+      'button[title*="pantalla completa" i]',
+    ]);
   }
 
   nextEpisode(): void {
@@ -110,6 +109,11 @@ export class GenericAdapter implements SiteAdapter {
     // Clean document title if it ends with common suffixes like "- YouTube"
     title = title.replace(/\s*-\s*(YouTube|Netflix|Crunchyroll|Prime Video).*$/i, '').trim();
 
+    const poster =
+      video.getAttribute('poster') ||
+      document.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
+      undefined;
+
     return {
       playing: !video.paused && !video.ended,
       title: title || 'Video en reproducción',
@@ -117,9 +121,10 @@ export class GenericAdapter implements SiteAdapter {
       duration: Math.round(video.duration || 0),
       volume: video.muted ? 0 : video.volume,
       muted: video.muted,
-      fullscreen: !!document.fullscreenElement,
+      fullscreen: isFullscreenActive(),
       service: 'generic',
       playbackRate: video.playbackRate,
+      thumbnail: poster || undefined,
       updatedAt: Date.now(),
     };
   }

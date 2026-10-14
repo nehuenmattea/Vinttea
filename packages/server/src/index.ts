@@ -324,7 +324,7 @@ function getVideoTestPageHtml(): string {
     </div>
 
     <div style="position: relative;">
-      <video id="testVideo" controls playsinline>
+      <video id="testVideo" controls playsinline poster="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg">
         <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
         Tu navegador no soporta video HTML5.
       </video>
@@ -336,12 +336,23 @@ function getVideoTestPageHtml(): string {
     </div>
 
     <!-- Simulación de metadatos de serie y episodio -->
-    <div style="margin-top: 14px; padding: 10px; background: #12141e; border-radius: 8px; border: 1px solid #252a3b;">
-      <div data-t="show-title" style="color: #ff640a; font-weight: 800; font-size: 0.9rem; text-transform: uppercase;">
-        📺 Anime de Prueba (Vinttea Demo)
+    <div style="margin-top: 14px; padding: 12px; background: #12141e; border-radius: 10px; border: 1px solid #252a3b; display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <div data-t="show-title" style="color: #ff640a; font-weight: 800; font-size: 0.9rem; text-transform: uppercase;">
+          📺 Anime de Prueba (Vinttea Demo)
+        </div>
+        <div data-t="episode-title" style="color: #ffffff; font-weight: 700; font-size: 1.1rem; margin-top: 2px;">
+          Episodio 12: La batalla final
+        </div>
       </div>
-      <div data-t="episode-title" style="color: #ffffff; font-weight: 700; font-size: 1.1rem; margin-top: 2px;">
-        Episodio 12: La batalla final
+
+      <!-- Simulación de tarjeta Siguiente -->
+      <div data-testid="next-episode-card" style="display: flex; align-items: center; gap: 8px; background: #1b2030; padding: 6px 10px; border-radius: 8px;">
+        <img src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg" style="width: 38px; height: 38px; border-radius: 6px; object-fit: cover;" alt="Next" />
+        <div style="font-size: 0.75rem;">
+          <div style="color: #ff640a; font-weight: 700;">SIGUIENTE</div>
+          <div class="title" style="color: #f3f4f6;">Ep. 13: El regreso</div>
+        </div>
       </div>
     </div>
 

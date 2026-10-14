@@ -1,5 +1,12 @@
-import type { SiteAdapter, PlayerState } from './types';
-import { simulateKey, findVisibleButton, isElementVisible } from './utils';
+import type { SiteAdapter, PlayerState, EpisodePreview } from './types';
+import {
+  simulateKey,
+  findInteractiveButton,
+  clickElementSafely,
+  wakePlayerControls,
+  toggleReliableFullscreen,
+  isFullscreenActive,
+} from './utils';
 import { GenericAdapter } from './generic';
 
 export class CrunchyrollAdapter extends GenericAdapter implements SiteAdapter {
@@ -7,18 +14,20 @@ export class CrunchyrollAdapter extends GenericAdapter implements SiteAdapter {
   name = 'Crunchyroll';
 
   matches(url: string): boolean {
-    return url.includes('crunchyroll.com/watch') || url.includes('crunchyroll.com/');
+    return url.includes('crunchyroll.com');
   }
 
   override togglePlay(): void {
-    const playPauseBtn = findVisibleButton([
+    const playPauseBtn = findInteractiveButton([
       '[data-testid="play_pause_button"]',
       '[data-testid="play-pause-button"]',
       'button[aria-label*="play" i]',
       'button[aria-label*="pause" i]',
+      'button[title*="play" i]',
+      'button[title*="pause" i]',
     ]);
     if (playPauseBtn) {
-      playPauseBtn.click();
+      clickElementSafely(playPauseBtn);
     } else {
       simulateKey(' ', 'Space', 32);
     }
@@ -39,86 +48,114 @@ export class CrunchyrollAdapter extends GenericAdapter implements SiteAdapter {
     }
   }
 
+  override seekTo(seconds: number): void {
+    const video = document.querySelector<HTMLVideoElement>('video');
+    if (video) {
+      video.currentTime = Math.max(0, Math.min(video.duration || 0, seconds));
+    }
+  }
+
   /**
-   * Fix for Crunchyroll fullscreen:
-   * Crunchyroll hides custom subtitles and overlays if standard video.requestFullscreen is called.
-   * We first trigger Crunchyroll's dedicated fullscreen button, or simulate 'f', or fullscreen the Vilos container.
+   * Fixed Crunchyroll fullscreen:
+   * Uses toggleReliableFullscreen which combines native button clicks, 'f' shortcut,
+   * video dblclick, and virtual CSS fullscreen + window maximization fallback.
    */
   override toggleFullscreen(): void {
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
-      return;
-    }
+    const video = document.querySelector<HTMLVideoElement>('video');
+    const playerContainer = document.querySelector<HTMLElement>(
+      '#vilos-player, .velocity-player-package, #player0, [data-testid="player-wrapper"], div[class*="player-wrapper"]'
+    ) || video?.parentElement;
 
-    const fsBtn = findVisibleButton([
+    toggleReliableFullscreen(video, playerContainer, [
       '[data-testid="fullscreen-button"]',
       '[data-testid="fullscreen_button"]',
+      'button[data-t="fullscreen-btn"]',
       'button[title*="pantalla completa" i]',
       'button[title*="fullscreen" i]',
       'button[aria-label*="pantalla completa" i]',
       'button[aria-label*="fullscreen" i]',
       '.fullscreen-icon',
+      '[class*="fullscreen-button" i]',
+      '[class*="fullscreen_button" i]',
     ]);
-
-    if (fsBtn) {
-      fsBtn.click();
-      return;
-    }
-
-    // Try Vilos keyboard shortcut
-    simulateKey('f', 'KeyF', 70);
-
-    // Fallback: Fullscreen the entire player package (keeps subtitles and controls intact)
-    const playerContainer = document.querySelector<HTMLElement>(
-      '#vilos-player, .velocity-player-package, #player0, [data-testid="player-wrapper"]'
-    );
-    if (playerContainer) {
-      playerContainer.requestFullscreen().catch(() => {});
-    } else {
-      super.toggleFullscreen();
-    }
   }
 
   override nextEpisode(): void {
-    const nextBtn = findVisibleButton([
+    const nextBtn = findInteractiveButton([
       '[data-testid="next-episode-button"]',
       '[data-testid="next-button"]',
       'button[data-t="next-episode"]',
       'a[data-testid="next-episode-button"]',
+      'button[aria-label*="siguiente" i]',
+      'button[aria-label*="next" i]',
     ]);
     if (nextBtn) {
-      nextBtn.click();
+      clickElementSafely(nextBtn);
     } else {
       simulateKey('n', 'KeyN', 78);
     }
   }
 
   override prevEpisode(): void {
-    const prevBtn = findVisibleButton([
+    const prevBtn = findInteractiveButton([
       '[data-testid="prev-episode-button"]',
       '[data-testid="previous-button"]',
       'button[data-t="prev-episode"]',
       'a[data-testid="prev-episode-button"]',
+      'button[aria-label*="anterior" i]',
+      'button[aria-label*="previous" i]',
     ]);
     if (prevBtn) {
-      prevBtn.click();
+      clickElementSafely(prevBtn);
     } else {
       simulateKey('p', 'KeyP', 80);
     }
   }
 
-  override skipIntro(): void {
-    const skipBtn = findVisibleButton([
+  /**
+   * Helper to locate Crunchyroll's Skip Intro button.
+   */
+  private findSkipButton(): HTMLElement | null {
+    const btn = findInteractiveButton([
       '[data-testid="skip-button"]',
+      '[data-testid="skip-intro-button"]',
       '[data-t="skip-intro"]',
       '.vilos-skip-intro',
       '.skip-intro',
-      'button[aria-label*="skip" i]',
-      'button[aria-label*="omitir" i]',
+      '[class*="skip-button" i]',
+      '[class*="skipintro" i]',
+      '[class*="SkipIntro" i]',
     ]);
-    if (skipBtn) {
-      skipBtn.click();
+    if (btn) return btn;
+
+    const allButtons = Array.from(
+      document.querySelectorAll<HTMLElement>('button, div[role="button"], a')
+    );
+    for (const b of allButtons) {
+      const txt = (b.textContent || '').trim().toLowerCase();
+      if (
+        txt.includes('omitir intro') ||
+        txt.includes('skip intro') ||
+        txt.includes('omitir resumen') ||
+        txt.includes('skip recap') ||
+        txt === 'omitir' ||
+        txt === 'skip'
+      ) {
+        return b;
+      }
     }
+    return null;
+  }
+
+  override skipIntro(): void {
+    wakePlayerControls();
+    const skipBtn = this.findSkipButton();
+    if (skipBtn) {
+      clickElementSafely(skipBtn);
+    }
+    // Also dispatch Crunchyroll's native skip intro keyboard shortcuts 's' and 'S'
+    simulateKey('s', 'KeyS', 83);
+    simulateKey('S', 'KeyS', 83);
   }
 
   override getState(): PlayerState | null {
@@ -136,18 +173,47 @@ export class CrunchyrollAdapter extends GenericAdapter implements SiteAdapter {
     const seriesTitle = seriesEl?.textContent?.trim() || '';
     const episodeTitle = episodeEl?.textContent?.trim() || '';
 
-    // Detect Skip Intro button
-    const skipBtn = findVisibleButton([
-      '[data-testid="skip-button"]',
-      '[data-t="skip-intro"]',
-      '.vilos-skip-intro',
-      '.skip-intro',
-      'button[aria-label*="skip" i]',
-      'button[aria-label*="omitir" i]',
-    ]);
-
-    const skipVisible = !!skipBtn && isElementVisible(skipBtn);
+    // Detect Skip Intro button:
+    // Even if controls fade out, as long as Crunchyroll keeps the skip button in DOM, it is ACTIVE and CLICKABLE!
+    const skipBtn = this.findSkipButton();
+    const skipVisible = !!skipBtn && skipBtn.isConnected;
     const skipText = skipBtn?.textContent?.trim() || 'Omitir intro';
+
+    // Extract Thumbnails: Current, Next, Prev
+    const ogImage = document.querySelector('meta[property="og:image"]')?.getAttribute('content');
+    const videoPoster = document.querySelector('video')?.getAttribute('poster');
+    const thumbImg = document.querySelector<HTMLImageElement>(
+      'img[data-t="thumbnail"], .video-player-wrapper img, .current-media-poster img'
+    );
+    const currentThumb = ogImage || videoPoster || thumbImg?.src || baseState.thumbnail;
+
+    let nextPreview: EpisodePreview | undefined;
+    const nextCard = document.querySelector<HTMLElement>(
+      '[data-testid="next-episode-card"], .up-next-section a, .next-episode-card, a[href*="/watch/"][class*="next"]'
+    );
+    if (nextCard) {
+      const nextImg = nextCard.querySelector<HTMLImageElement>('img')?.src;
+      const nextTitle =
+        nextCard.querySelector<HTMLElement>('[class*="title"], h4, p')?.textContent?.trim() ||
+        'Siguiente Episodio';
+      if (nextImg || nextTitle) {
+        nextPreview = { title: nextTitle, thumbnail: nextImg };
+      }
+    }
+
+    let prevPreview: EpisodePreview | undefined;
+    const prevCard = document.querySelector<HTMLElement>(
+      '[data-testid="prev-episode-card"], .prev-episode-card, a[href*="/watch/"][class*="prev"]'
+    );
+    if (prevCard) {
+      const prevImg = prevCard.querySelector<HTMLImageElement>('img')?.src;
+      const prevTitle =
+        prevCard.querySelector<HTMLElement>('[class*="title"], h4, p')?.textContent?.trim() ||
+        'Episodio Anterior';
+      if (prevImg || prevTitle) {
+        prevPreview = { title: prevTitle, thumbnail: prevImg };
+      }
+    }
 
     return {
       ...baseState,
@@ -156,10 +222,14 @@ export class CrunchyrollAdapter extends GenericAdapter implements SiteAdapter {
       episode: episodeTitle || undefined,
       title: episodeTitle
         ? `${seriesTitle ? seriesTitle + ' - ' : ''}${episodeTitle}`
-        : (seriesTitle || baseState.title),
+        : seriesTitle || baseState.title,
+      fullscreen: isFullscreenActive(),
+      thumbnail: currentThumb,
+      nextPreview: nextPreview || baseState.nextPreview,
+      prevPreview: prevPreview || baseState.prevPreview,
       skipButton: {
         visible: skipVisible,
-        text: skipText,
+        text: skipText.length > 25 ? 'Omitir intro' : skipText,
       },
     };
   }

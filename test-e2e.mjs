@@ -7,49 +7,49 @@ console.log('🧪 Iniciando prueba E2E del protocolo Vinttea...');
 
 // Iniciar servidor en subproceso
 const serverProcess = spawn('node', ['packages/server/dist/index.js'], {
-  stdio: ['ignore', 'pipe', 'pipe'],
-});
-
-serverProcess.stderr.on('data', (d) => {
-  const str = d.toString();
-  if (!str.includes('ExperimentalWarning')) {
-    console.error('[Server Err]', str);
-  }
-});
-
-let serverReady = false;
-
-serverProcess.stdout.on('data', (data) => {
-  const out = data.toString();
-  if (out.includes('Server listening') || out.includes('VINTTEA')) {
-    serverReady = true;
-  }
+  stdio: ['ignore', 'inherit', 'inherit'],
 });
 
 async function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function runTest() {
-  // Esperar a que el servidor arranque
-  for (let i = 0; i < 20; i++) {
-    if (serverReady) break;
-    await wait(300);
+async function waitForServer(port) {
+  for (let i = 0; i < 30; i++) {
+    try {
+      const res = await fetch(`http://localhost:${port}/api/status`);
+      if (res.ok) return true;
+    } catch {
+      // server not up yet
+    }
+    await wait(200);
   }
+  throw new Error('Servidor no respondió a tiempo');
+}
 
+async function runTest() {
   const PORT = 9876;
+  await waitForServer(PORT);
+  console.log('✔ Servidor HTTP listo en puerto', PORT);
+
   const WS_URL = `ws://localhost:${PORT}/ws`;
 
   console.log('1. Conectando cliente Extensión...');
   const extWs = new WebSocket(`${WS_URL}?role=extension`);
 
-  await new Promise((resolve) => (extWs.onopen = resolve));
+  await new Promise((resolve, reject) => {
+    extWs.onopen = resolve;
+    extWs.onerror = reject;
+  });
   console.log('✔ Extensión conectada.');
 
   console.log('2. Conectando cliente Remoto (celular)...');
   const remoteWs = new WebSocket(`${WS_URL}?role=remote`);
 
-  await new Promise((resolve) => (remoteWs.onopen = resolve));
+  await new Promise((resolve, reject) => {
+    remoteWs.onopen = resolve;
+    remoteWs.onerror = reject;
+  });
   console.log('✔ Remoto conectado.');
 
   let remoteReceivedStatus = false;

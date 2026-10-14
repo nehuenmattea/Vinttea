@@ -4,24 +4,41 @@ import type { PlayerState, CommandAction } from '../src/adapters/types';
 
 export default defineContentScript({
   matches: ['*://*/*'],
+  allFrames: true,
   runAt: 'document_idle',
   main() {
-    console.log('[Vinttea Content Script] Injected on', window.location.href);
-
-    const adapter = getAdapterForUrl(window.location.href);
     let lastReportedTime = 0;
-    let attachedVideos = new WeakSet<HTMLVideoElement>();
+    const attachedVideos = new WeakSet<HTMLVideoElement>();
+
+    function getCurrentAdapter() {
+      return getAdapterForUrl(window.location.href);
+    }
 
     function sendStateUpdate() {
+      // If this frame has no videos, avoid sending empty states
+      const videos = document.querySelectorAll('video');
+      if (videos.length === 0) return;
+
+      // In iframes, filter out tiny tracking or banner ad videos
+      if (window.top !== window.self) {
+        const isRealVideo = Array.from(videos).some(
+          (v) => (v.offsetWidth > 150 && v.offsetHeight > 100) || v.readyState > 0
+        );
+        if (!isRealVideo) return;
+      }
+
+      const adapter = getCurrentAdapter();
       const state = adapter.getState();
       if (!state) return;
 
-      chrome.runtime.sendMessage({
-        type: 'vinttea_state_update',
-        state,
-      }).catch(() => {
-        // Background script might be temporarily inactive
-      });
+      chrome.runtime
+        .sendMessage({
+          type: 'vinttea_state_update',
+          state,
+        })
+        .catch(() => {
+          // Background script might be temporarily inactive
+        });
     }
 
     function attachListenersToVideo(video: HTMLVideoElement) {
@@ -36,6 +53,9 @@ export default defineContentScript({
       video.addEventListener('pause', notifyChange);
       video.addEventListener('volumechange', notifyChange);
       video.addEventListener('ended', notifyChange);
+      video.addEventListener('loadedmetadata', notifyChange);
+      video.addEventListener('durationchange', notifyChange);
+      video.addEventListener('canplay', notifyChange);
 
       video.addEventListener('timeupdate', () => {
         const now = Date.now();
@@ -46,10 +66,8 @@ export default defineContentScript({
         }
       });
 
-      // Initial report if video is already playing
-      if (!video.paused) {
-        notifyChange();
-      }
+      // Send immediate report when video is discovered
+      notifyChange();
     }
 
     function scanForVideos() {
@@ -64,14 +82,36 @@ export default defineContentScript({
     const observer = new MutationObserver(() => {
       scanForVideos();
     });
+
     observer.observe(document.body || document.documentElement, {
       childList: true,
       subtree: true,
     });
 
+    // Listen to SPA navigation events (YouTube, Netflix, Crunchyroll)
+    const onNavigate = () => {
+      scanForVideos();
+      sendStateUpdate();
+      setTimeout(() => {
+        scanForVideos();
+        sendStateUpdate();
+      }, 400);
+      setTimeout(() => {
+        scanForVideos();
+        sendStateUpdate();
+      }, 1000);
+    };
+
+    window.addEventListener('popstate', onNavigate);
+    window.addEventListener('hashchange', onNavigate);
+    window.addEventListener('yt-navigate-finish', onNavigate);
+    window.addEventListener('yt-page-data-updated', onNavigate);
+    document.addEventListener('yt-navigate-finish', onNavigate);
+
     // Listen for remote commands from background service worker
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (message.type === 'vinttea_command') {
+        const adapter = getCurrentAdapter();
         const action: CommandAction = message.action;
         const value: number | undefined = message.value;
 
@@ -134,7 +174,7 @@ export default defineContentScript({
           const state = adapter.getState();
           sendResponse({ state });
           sendStateUpdate();
-        }, 50);
+        }, 60);
 
         return true; // Keep sendResponse channel open for async response
       }

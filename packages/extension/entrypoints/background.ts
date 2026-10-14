@@ -8,6 +8,7 @@ export default defineBackground(() => {
   let reconnectTimer: any = null;
   let heartbeatTimer: any = null;
   let lastActiveMediaTabId: number | null = null;
+  let lastActiveMediaFrameId: number | null = null;
 
   const WS_URL = 'ws://localhost:9876/ws?role=extension';
 
@@ -135,19 +136,23 @@ export default defineBackground(() => {
 
     lastActiveMediaTabId = tab.id;
 
-    chrome.tabs.sendMessage(
-      tab.id,
-      { type: 'vinttea_command', action, value },
-      (response) => {
-        if (chrome.runtime.lastError) {
-          // Tab might not have content script injected (e.g. chrome:// or unloaded)
-          return;
-        }
-        if (response && response.state) {
-          sendToServer({ type: 'state', state: response.state });
-        }
+    const msg = { type: 'vinttea_command', action, value };
+    const options = lastActiveMediaFrameId !== null ? { frameId: lastActiveMediaFrameId } : undefined;
+
+    chrome.tabs.sendMessage(tab.id, msg, options, (response) => {
+      if (chrome.runtime.lastError && options) {
+        // Fallback to default frame
+        chrome.tabs.sendMessage(tab.id, msg, (res) => {
+          if (res && res.state) {
+            sendToServer({ type: 'state', state: res.state });
+          }
+        });
+        return;
       }
-    );
+      if (response && response.state) {
+        sendToServer({ type: 'state', state: response.state });
+      }
+    });
   }
 
   function handleServerMessage(msg: VintteaMessage) {
@@ -162,9 +167,21 @@ export default defineBackground(() => {
     if (message.type === 'vinttea_state_update') {
       if (sender.tab?.id) {
         lastActiveMediaTabId = sender.tab.id;
+        lastActiveMediaFrameId = sender.frameId ?? 0;
       }
       sendToServer({ type: 'state', state: message.state });
       sendResponse({ received: true });
+    } else if (message.type === 'vinttea_window_fullscreen') {
+      if (sender.tab?.windowId) {
+        chrome.windows.get(sender.tab.windowId, (win) => {
+          const isFs = win.state === 'fullscreen';
+          const targetState = message.fullscreen !== undefined
+            ? (message.fullscreen ? 'fullscreen' : 'maximized')
+            : (isFs ? 'maximized' : 'fullscreen');
+          chrome.windows.update(sender.tab!.windowId, { state: targetState });
+        });
+      }
+      sendResponse({ handled: true });
     }
   });
 
