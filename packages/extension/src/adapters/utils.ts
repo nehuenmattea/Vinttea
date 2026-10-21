@@ -139,6 +139,16 @@ function ensureFsStyle() {
         background: #000 !important;
         margin: 0 !important;
       }
+      .vinttea-virtual-fullscreen video {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 100% !important;
+        max-height: 100% !important;
+        object-fit: contain !important;
+      }
+      video.vinttea-virtual-fullscreen {
+        object-fit: contain !important;
+      }
       body.vinttea-fs-body-lock {
         overflow: hidden !important;
       }
@@ -148,24 +158,37 @@ function ensureFsStyle() {
 }
 
 export function isFullscreenActive(): boolean {
-  return !!document.fullscreenElement || document.body.classList.contains('vinttea-fs-body-lock');
+  const isDocFs = !!document.fullscreenElement;
+  const isCssFs = document.body.classList.contains('vinttea-fs-body-lock');
+  const isWindowFs =
+    window.matchMedia('(display-mode: fullscreen)').matches ||
+    (typeof window !== 'undefined' &&
+      typeof screen !== 'undefined' &&
+      window.innerHeight >= screen.height - 4 &&
+      window.innerWidth >= screen.width - 4);
+
+  return isDocFs || isCssFs || isWindowFs;
 }
 
 /**
  * Bulletproof fullscreen toggle that handles:
- * 1. Native exit if active.
- * 2. Site button click and keyboard 'f' event.
+ * 1. Window-level OS fullscreen via background script (hides taskbar and desktop icons).
+ * 2. Native button click and keyboard 'f' event.
  * 3. Double-click simulation on video.
- * 4. Virtual CSS Fullscreen + Chrome window-level fullscreen fallback.
+ * 4. Virtual CSS Fullscreen (100vw/100vh) fallback to ensure video fills the display.
  */
 export function toggleReliableFullscreen(
   videoEl: HTMLVideoElement | null,
   containerEl?: HTMLElement | null,
-  fsBtnSelectors: string[] = []
+  fsBtnSelectors: string[] = [],
+  forceState?: number // 1: enter, 0: exit
 ): void {
   ensureFsStyle();
 
-  if (isFullscreenActive()) {
+  const isCurrentlyFs = isFullscreenActive();
+  const shouldExit = forceState !== undefined ? forceState === 0 : isCurrentlyFs;
+
+  if (shouldExit) {
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {});
     }
@@ -173,6 +196,7 @@ export function toggleReliableFullscreen(
       el.classList.remove('vinttea-virtual-fullscreen');
     });
     document.body.classList.remove('vinttea-fs-body-lock');
+    simulateKey('Escape', 'Escape', 27);
     chrome.runtime.sendMessage({ type: 'vinttea_window_fullscreen', fullscreen: false }).catch(() => {});
     return;
   }
@@ -195,16 +219,13 @@ export function toggleReliableFullscreen(
     } catch {}
   }
 
-  // 4. Virtual Fullscreen fallback if native wasn't triggered
-  setTimeout(() => {
-    if (!document.fullscreenElement) {
-      const target = containerEl || videoEl?.parentElement || videoEl;
-      if (target) {
-        target.classList.add('vinttea-virtual-fullscreen');
-        document.body.classList.add('vinttea-fs-body-lock');
-        chrome.runtime.sendMessage({ type: 'vinttea_window_fullscreen', fullscreen: true }).catch(() => {});
-      }
-    }
-  }, 120);
+  // 4. Virtual Fullscreen fallback + Window Fullscreen message
+  const target = containerEl || videoEl?.parentElement || videoEl;
+  if (target) {
+    target.classList.add('vinttea-virtual-fullscreen');
+    document.body.classList.add('vinttea-fs-body-lock');
+  }
+
+  chrome.runtime.sendMessage({ type: 'vinttea_window_fullscreen', fullscreen: true }).catch(() => {});
 }
 

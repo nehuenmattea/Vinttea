@@ -358,7 +358,7 @@ export function App() {
           )}
 
           {/* Titles */}
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0, flex: 1 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0, flex: 1, gap: 2 }}>
             {state.series && (
               <div
                 style={{
@@ -376,9 +376,37 @@ export function App() {
               </div>
             )}
 
+            {/* Dedicated Season / Saga Badge */}
+            {state.season && (
+              <div style={{ display: 'flex', alignItems: 'center', marginTop: 2, marginBottom: 1 }}>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    padding: '2px 8px',
+                    borderRadius: 6,
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    color: '#e2e8f0',
+                    border: '1px solid rgba(255, 255, 255, 0.14)',
+                    letterSpacing: '0.02em',
+                    maxWidth: '100%',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  <span style={{ fontSize: '0.72rem' }}>🎞️</span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{state.season}</span>
+                </span>
+              </div>
+            )}
+
             <div
               style={{
-                fontSize: '1.15rem',
+                fontSize: '1.12rem',
                 fontWeight: 800,
                 lineHeight: 1.25,
                 color: '#ffffff',
@@ -387,6 +415,7 @@ export function App() {
                 display: '-webkit-box',
                 WebkitLineClamp: 2,
                 WebkitBoxOrient: 'vertical',
+                marginTop: state.season ? 2 : 0,
               }}
             >
               {state.episode || state.title || 'Esperando video...'}

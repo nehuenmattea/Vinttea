@@ -151,7 +151,7 @@ export default defineContentScript({
             break;
           case 'toggleFullscreen':
             if (adapter.toggleFullscreen) {
-              adapter.toggleFullscreen();
+              adapter.toggleFullscreen(value);
             }
             break;
           case 'nextEpisode':

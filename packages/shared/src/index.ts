@@ -11,6 +11,7 @@ export interface PlayerState {
   playing: boolean;
   title: string;
   series?: string;       // Nombre de la serie o anime si aplica
+  season?: string;       // Temporada, saga o arco (ej: "Temporada 4", "Saga de Wano")
   episode?: string;      // "T1:E3 - Título" o "Episodio 24"
   position: number;     // seconds
   duration: number;     // seconds
@@ -121,7 +122,7 @@ export interface SiteAdapter {
   seekTo?(seconds: number): Promise<void> | void;
   setVolume(level: number): Promise<void> | void;
   toggleMute?(): Promise<void> | void;
-  toggleFullscreen?(): Promise<void> | void;
+  toggleFullscreen?(value?: number): Promise<void> | void;
   nextEpisode(): Promise<void> | void;
   prevEpisode(): Promise<void> | void;
   skipIntro?(): Promise<void> | void;

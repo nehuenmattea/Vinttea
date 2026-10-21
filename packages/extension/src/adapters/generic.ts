@@ -72,14 +72,19 @@ export class GenericAdapter implements SiteAdapter {
     video.muted = !video.muted;
   }
 
-  toggleFullscreen(): void {
+  toggleFullscreen(forceState?: number): void {
     const video = this.getVideoElement();
-    toggleReliableFullscreen(video, video?.parentElement, [
-      'button[aria-label*="fullscreen" i]',
-      'button[aria-label*="pantalla completa" i]',
-      'button[title*="fullscreen" i]',
-      'button[title*="pantalla completa" i]',
-    ]);
+    toggleReliableFullscreen(
+      video,
+      video?.parentElement,
+      [
+        'button[aria-label*="fullscreen" i]',
+        'button[aria-label*="pantalla completa" i]',
+        'button[title*="fullscreen" i]',
+        'button[title*="pantalla completa" i]',
+      ],
+      forceState
+    );
   }
 
   nextEpisode(): void {

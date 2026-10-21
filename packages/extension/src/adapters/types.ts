@@ -1,1 +1,1 @@
-export type { SiteAdapter, PlayerState, CommandAction } from '@vinttea/shared';
+export type { SiteAdapter, PlayerState, CommandAction, EpisodePreview } from '@vinttea/shared';

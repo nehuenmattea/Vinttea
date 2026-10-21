@@ -60,24 +60,29 @@ export class CrunchyrollAdapter extends GenericAdapter implements SiteAdapter {
    * Uses toggleReliableFullscreen which combines native button clicks, 'f' shortcut,
    * video dblclick, and virtual CSS fullscreen + window maximization fallback.
    */
-  override toggleFullscreen(): void {
+  override toggleFullscreen(forceState?: number): void {
     const video = document.querySelector<HTMLVideoElement>('video');
     const playerContainer = document.querySelector<HTMLElement>(
       '#vilos-player, .velocity-player-package, #player0, [data-testid="player-wrapper"], div[class*="player-wrapper"]'
     ) || video?.parentElement;
 
-    toggleReliableFullscreen(video, playerContainer, [
-      '[data-testid="fullscreen-button"]',
-      '[data-testid="fullscreen_button"]',
-      'button[data-t="fullscreen-btn"]',
-      'button[title*="pantalla completa" i]',
-      'button[title*="fullscreen" i]',
-      'button[aria-label*="pantalla completa" i]',
-      'button[aria-label*="fullscreen" i]',
-      '.fullscreen-icon',
-      '[class*="fullscreen-button" i]',
-      '[class*="fullscreen_button" i]',
-    ]);
+    toggleReliableFullscreen(
+      video,
+      playerContainer,
+      [
+        '[data-testid="fullscreen-button"]',
+        '[data-testid="fullscreen_button"]',
+        'button[data-t="fullscreen-btn"]',
+        'button[title*="pantalla completa" i]',
+        'button[title*="fullscreen" i]',
+        'button[aria-label*="pantalla completa" i]',
+        'button[aria-label*="fullscreen" i]',
+        '.fullscreen-icon',
+        '[class*="fullscreen-button" i]',
+        '[class*="fullscreen_button" i]',
+      ],
+      forceState
+    );
   }
 
   override nextEpisode(): void {
@@ -162,16 +167,36 @@ export class CrunchyrollAdapter extends GenericAdapter implements SiteAdapter {
     const baseState = super.getState();
     if (!baseState) return null;
 
-    // Detect Anime title & Episode title
+    // Detect Anime title, Season/Saga & Episode title
     const seriesEl = document.querySelector<HTMLElement>(
       '[data-t="show-title"], .show-title-link, a[href*="/series/"]'
+    );
+    const seasonEl = document.querySelector<HTMLElement>(
+      '[data-t="season-title"], .season-title, .season-selector, [class*="season-title" i], [class*="seasonTitle" i], [data-testid="season-name"]'
     );
     const episodeEl = document.querySelector<HTMLElement>(
       '[data-t="episode-title"], h1.title, .episode-title, h4.title'
     );
 
     const seriesTitle = seriesEl?.textContent?.trim() || '';
+    let seasonTitle = seasonEl?.textContent?.trim() || '';
     const episodeTitle = episodeEl?.textContent?.trim() || '';
+
+    // If seasonTitle is not found directly, check breadcrumbs or subtitles
+    if (!seasonTitle) {
+      const breadcrumbs = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          '.breadcrumb a, [class*="breadcrumb" i] span, [class*="breadcrumb" i] a'
+        )
+      );
+      for (const b of breadcrumbs) {
+        const txt = (b.textContent || '').trim();
+        if (/temporada|season|saga|arco|t\d+/i.test(txt) && txt !== seriesTitle) {
+          seasonTitle = txt;
+          break;
+        }
+      }
+    }
 
     // Detect Skip Intro button:
     // Even if controls fade out, as long as Crunchyroll keeps the skip button in DOM, it is ACTIVE and CLICKABLE!
@@ -219,6 +244,7 @@ export class CrunchyrollAdapter extends GenericAdapter implements SiteAdapter {
       ...baseState,
       service: 'crunchyroll',
       series: seriesTitle || undefined,
+      season: seasonTitle || undefined,
       episode: episodeTitle || undefined,
       title: episodeTitle
         ? `${seriesTitle ? seriesTitle + ' - ' : ''}${episodeTitle}`

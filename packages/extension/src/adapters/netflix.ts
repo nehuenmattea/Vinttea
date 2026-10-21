@@ -72,16 +72,21 @@ export class NetflixAdapter extends GenericAdapter implements SiteAdapter {
     this.seek(diff);
   }
 
-  override toggleFullscreen(): void {
+  override toggleFullscreen(forceState?: number): void {
     const video = document.querySelector<HTMLVideoElement>('video');
     const container =
       document.querySelector<HTMLElement>('.watch-video--player-view') ||
       video?.parentElement;
 
-    toggleReliableFullscreen(video, container, [
-      'button[data-uia="control-fullscreen-enter"]',
-      'button[data-uia="control-fullscreen-exit"]',
-    ]);
+    toggleReliableFullscreen(
+      video,
+      container,
+      [
+        'button[data-uia="control-fullscreen-enter"]',
+        'button[data-uia="control-fullscreen-exit"]',
+      ],
+      forceState
+    );
   }
 
   override toggleMute(): void {
@@ -123,8 +128,9 @@ export class NetflixAdapter extends GenericAdapter implements SiteAdapter {
     const baseState = super.getState();
     if (!baseState) return null;
 
-    // Detect Netflix series and episode title
+    // Detect Netflix series, season/saga, and episode title
     let seriesTitle = '';
+    let seasonTitle = '';
     let episodeTitle = '';
 
     const titleContainer = document.querySelector<HTMLElement>('[data-uia="video-title"]');
@@ -132,12 +138,16 @@ export class NetflixAdapter extends GenericAdapter implements SiteAdapter {
       const spans = Array.from(titleContainer.querySelectorAll('span, h4'));
       if (spans.length >= 3) {
         seriesTitle = spans[0]?.textContent?.trim() || '';
-        const seasonEp = spans[1]?.textContent?.trim() || '';
-        const epName = spans[2]?.textContent?.trim() || '';
-        episodeTitle = seasonEp ? `${seasonEp} - ${epName}` : epName;
+        seasonTitle = spans[1]?.textContent?.trim() || '';
+        episodeTitle = spans[2]?.textContent?.trim() || '';
       } else if (spans.length === 2) {
         seriesTitle = spans[0]?.textContent?.trim() || '';
-        episodeTitle = spans[1]?.textContent?.trim() || '';
+        const second = spans[1]?.textContent?.trim() || '';
+        if (/temporada|season|saga|t\d+/i.test(second)) {
+          seasonTitle = second;
+        } else {
+          episodeTitle = second;
+        }
       } else {
         seriesTitle = titleContainer.textContent?.trim() || '';
       }
@@ -164,8 +174,11 @@ export class NetflixAdapter extends GenericAdapter implements SiteAdapter {
       ...baseState,
       service: 'netflix',
       series: seriesTitle || undefined,
+      season: seasonTitle || undefined,
       episode: episodeTitle || undefined,
-      title: episodeTitle ? `${seriesTitle ? seriesTitle + ': ' : ''}${episodeTitle}` : (seriesTitle || baseState.title),
+      title: episodeTitle
+        ? `${seriesTitle ? seriesTitle + ': ' : ''}${seasonTitle ? seasonTitle + ' - ' : ''}${episodeTitle}`
+        : (seriesTitle || baseState.title),
       fullscreen: isFullscreenActive(),
       thumbnail,
       skipButton: {

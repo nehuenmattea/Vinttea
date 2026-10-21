@@ -52,17 +52,22 @@ export class YouTubeAdapter extends GenericAdapter implements SiteAdapter {
     }
   }
 
-  override toggleFullscreen(): void {
+  override toggleFullscreen(forceState?: number): void {
     const video = this.getYouTubeVideo();
     const playerContainer =
       document.querySelector<HTMLElement>('#movie_player, ytd-player, #player') ||
       video?.parentElement;
 
-    toggleReliableFullscreen(video, playerContainer, [
-      '.ytp-fullscreen-button',
-      'button[title*="pantalla completa" i]',
-      'button[aria-label*="pantalla completa" i]',
-    ]);
+    toggleReliableFullscreen(
+      video,
+      playerContainer,
+      [
+        '.ytp-fullscreen-button',
+        'button[title*="pantalla completa" i]',
+        'button[aria-label*="pantalla completa" i]',
+      ],
+      forceState
+    );
   }
 
   override skipIntro(): void {
@@ -149,10 +154,17 @@ export class YouTubeAdapter extends GenericAdapter implements SiteAdapter {
       };
     }
 
+    // Check if watching within a playlist / saga
+    const playlistEl = document.querySelector<HTMLElement>(
+      'ytd-playlist-panel-renderer .header-title, #playlist-header .title, .ytd-playlist-panel-renderer h3'
+    );
+    const playlistTitle = playlistEl?.textContent?.trim();
+
     return {
       playing: !video.paused && !video.ended,
       title: title || 'YouTube Video',
       series: channelName || undefined,
+      season: playlistTitle || undefined,
       service: 'youtube',
       position: Math.round(video.currentTime),
       duration: Math.round(video.duration || 0),

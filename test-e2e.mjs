@@ -17,7 +17,7 @@ async function wait(ms) {
 async function waitForServer(port) {
   for (let i = 0; i < 30; i++) {
     try {
-      const res = await fetch(`http://localhost:${port}/api/status`);
+      const res = await fetch(`http://127.0.0.1:${port}/api/status`);
       if (res.ok) return true;
     } catch {
       // server not up yet
@@ -32,7 +32,7 @@ async function runTest() {
   await waitForServer(PORT);
   console.log('✔ Servidor HTTP listo en puerto', PORT);
 
-  const WS_URL = `ws://localhost:${PORT}/ws`;
+  const WS_URL = `ws://127.0.0.1:${PORT}/ws`;
 
   console.log('1. Conectando cliente Extensión...');
   const extWs = new WebSocket(`${WS_URL}?role=extension`);

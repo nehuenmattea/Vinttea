@@ -18,18 +18,62 @@ export function IconPause({ size = 28, color = 'currentColor' }: { size?: number
 
 export function IconRewind10({ size = 24, color = 'currentColor' }: { size?: number; color?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 4v3L8 3.5 12 0v3c5.5 0 10 4.5 10 10s-4.5 10-10 10S2 18.5 2 13" />
-      <text x="12" y="15" fontSize="7" fontWeight="bold" textAnchor="middle" fill={color} stroke="none">10</text>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+      <text
+        x="12"
+        y="12"
+        fontSize="7"
+        fontWeight="800"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill={color}
+        stroke="none"
+        style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
+      >
+        10
+      </text>
     </svg>
   );
 }
 
 export function IconForward10({ size = 24, color = 'currentColor' }: { size?: number; color?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 4v3l4-3.5L12 0v3c-5.5 0-10 4.5-10 10s4.5 10 10 10 10-4.5 10-10" />
-      <text x="12" y="15" fontSize="7" fontWeight="bold" textAnchor="middle" fill={color} stroke="none">10</text>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.74 2.74L21 8" />
+      <path d="M21 3v5h-5" />
+      <text
+        x="12"
+        y="12"
+        fontSize="7"
+        fontWeight="800"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill={color}
+        stroke="none"
+        style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
+      >
+        10
+      </text>
     </svg>
   );
 }
