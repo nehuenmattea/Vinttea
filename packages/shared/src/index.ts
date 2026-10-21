@@ -11,7 +11,10 @@ export interface PlayerState {
   playing: boolean;
   title: string;
   series?: string;       // Nombre de la serie o anime si aplica
+<<<<<<< HEAD
   season?: string;       // Temporada, saga o arco (ej: "Temporada 4", "Saga de Wano")
+=======
+>>>>>>> a9ee81ec18efac0fab6dc35eb594311bcac408ac
   episode?: string;      // "T1:E3 - Título" o "Episodio 24"
   position: number;     // seconds
   duration: number;     // seconds
@@ -20,9 +23,12 @@ export interface PlayerState {
   fullscreen?: boolean;
   service?: 'youtube' | 'youtubemusic' | 'netflix' | 'crunchyroll' | 'prime' | 'generic' | string;
   playbackRate?: number;
+<<<<<<< HEAD
   thumbnail?: string;    // Portada / miniatura del video actual
   prevPreview?: EpisodePreview; // Info y miniatura del episodio anterior
   nextPreview?: EpisodePreview; // Info y miniatura del episodio siguiente
+=======
+>>>>>>> a9ee81ec18efac0fab6dc35eb594311bcac408ac
   skipButton?: {
     visible: boolean;
     text: string;       // "Omitir intro", "Omitir resumen", etc.
