@@ -27,11 +27,12 @@ export interface PlayerState {
     visible: boolean;
     text: string;       // "Omitir intro", "Omitir resumen", etc.
   };
+  shutdownSecondsLeft?: number; // Segundos restantes si hay apagado de PC en curso
   updatedAt?: number;   // timestamp ms
 }
 
 /**
- * Commands that can be sent from a remote control to the browser.
+ * Commands that can be sent from a remote control to the browser or server.
  */
 export type CommandAction =
   | 'play'
@@ -46,7 +47,9 @@ export type CommandAction =
   | 'nextEpisode'
   | 'prevEpisode'
   | 'skipIntro'         // Omitir intro o resumen
-  | 'requestState';
+  | 'requestState'
+  | 'shutdownPC'        // value: 30 (cuenta regresiva) o 0 (inmediato)
+  | 'cancelShutdown';   // abortar apagado programado
 
 export type ClientRole = 'remote' | 'extension' | 'web-tester';
 

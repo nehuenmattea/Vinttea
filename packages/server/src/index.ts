@@ -6,6 +6,7 @@ import type { WebSocket } from 'ws';
 import os from 'os';
 import path from 'path';
 import fs from 'fs';
+import { exec } from 'child_process';
 import qrcodeTerminal from 'qrcode-terminal';
 import {
   DEFAULT_PORT,
@@ -37,6 +38,85 @@ const extensionClients = new Set<WebSocket>();
 const remoteClients = new Set<WebSocket>();
 let lastKnownState: PlayerState | null = null;
 
+// Shutdown PC state & timer management
+let shutdownInterval: NodeJS.Timeout | null = null;
+let shutdownSecondsRemaining = 0;
+
+function handleShutdownCommand(seconds: number = 30) {
+  server.log.warn({ seconds }, 'Shutdown command received from remote');
+
+  if (seconds <= 0) {
+    if (process.platform === 'win32') {
+      exec('shutdown /s /f /t 0');
+    } else {
+      exec('shutdown -h now');
+    }
+    return;
+  }
+
+  handleCancelShutdown(false);
+  shutdownSecondsRemaining = seconds;
+
+  if (process.platform === 'win32') {
+    exec(`shutdown /s /t ${seconds} /c "Vinttea: Apagando la PC..."`);
+  }
+
+  const broadcastCountdown = () => {
+    if (lastKnownState) {
+      lastKnownState = {
+        ...lastKnownState,
+        shutdownSecondsLeft: shutdownSecondsRemaining > 0 ? shutdownSecondsRemaining : undefined,
+      };
+      broadcastToRemotes({ type: 'state', state: lastKnownState });
+    } else {
+      broadcastToRemotes({
+        type: 'state',
+        state: {
+          playing: false,
+          title: 'Apagando PC...',
+          position: 0,
+          duration: 0,
+          volume: 0,
+          muted: false,
+          shutdownSecondsLeft: shutdownSecondsRemaining > 0 ? shutdownSecondsRemaining : undefined,
+        },
+      });
+    }
+  };
+
+  broadcastCountdown();
+
+  shutdownInterval = setInterval(() => {
+    shutdownSecondsRemaining--;
+    if (shutdownSecondsRemaining <= 0) {
+      if (shutdownInterval) clearInterval(shutdownInterval);
+      shutdownInterval = null;
+    }
+    broadcastCountdown();
+  }, 1000);
+}
+
+function handleCancelShutdown(notify: boolean = true) {
+  server.log.info('Canceling shutdown');
+  if (shutdownInterval) {
+    clearInterval(shutdownInterval);
+    shutdownInterval = null;
+  }
+  shutdownSecondsRemaining = 0;
+
+  if (process.platform === 'win32') {
+    exec('shutdown /a', () => {});
+  }
+
+  if (notify && lastKnownState) {
+    lastKnownState = {
+      ...lastKnownState,
+      shutdownSecondsLeft: undefined,
+    };
+    broadcastToRemotes({ type: 'state', state: lastKnownState });
+  }
+}
+
 function broadcastToRemotes(message: VintteaMessage) {
   const data = JSON.stringify(message);
   for (const client of remoteClients) {
@@ -64,9 +144,57 @@ function broadcastStatus() {
   broadcastToRemotes(statusMsg);
 }
 
+const VINTTEA_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#181c2b" />
+      <stop offset="100%" stop-color="#0a0c13" />
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff3366" />
+      <stop offset="50%" stop-color="#818cf8" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+    <linearGradient id="vGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff2a5f" />
+      <stop offset="50%" stop-color="#ff6b8b" />
+      <stop offset="100%" stop-color="#a855f7" />
+    </linearGradient>
+    <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ff3366" />
+      <stop offset="100%" stop-color="#818cf8" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="110" fill="url(#bgGrad)" stroke="url(#borderGrad)" stroke-width="8" />
+  <g stroke="url(#waveGrad)" stroke-width="12" stroke-linecap="round" fill="none" opacity="0.9">
+    <path d="M196 110 A 90 90 0 0 1 316 110" />
+    <path d="M160 80 A 140 140 0 0 1 352 80" opacity="0.6" />
+    <circle cx="256" cy="135" r="7" fill="#ff3366" stroke="none" />
+  </g>
+  <g filter="url(#glow)">
+    <path d="M140 170 L256 380 L372 170 L315 170 L256 300 L197 170 Z" fill="url(#vGrad)" />
+  </g>
+  <polygon points="244,222 244,262 278,242" fill="#ffffff" opacity="0.95" />
+  <circle cx="216" cy="425" r="8" fill="#ff3366" opacity="0.8" />
+  <circle cx="256" cy="425" r="8" fill="#818cf8" opacity="0.9" />
+  <circle cx="296" cy="425" r="8" fill="#38bdf8" opacity="0.8" />
+</svg>`;
+
 export async function startServer(port: number = DEFAULT_PORT) {
   await server.register(cors, { origin: true });
   await server.register(websocketPlugin);
+
+  // Favicon and icon routes
+  server.get('/favicon.ico', async (_req, reply) => {
+    reply.type('image/svg+xml').send(VINTTEA_ICON_SVG);
+  });
+  server.get('/icon.svg', async (_req, reply) => {
+    reply.type('image/svg+xml').send(VINTTEA_ICON_SVG);
+  });
 
   // Status API endpoint
   server.get('/api/status', async () => {
@@ -75,6 +203,7 @@ export async function startServer(port: number = DEFAULT_PORT) {
       extensionConnected: extensionClients.size > 0,
       activeRemotes: remoteClients.size,
       lastKnownState,
+      shutdownSecondsRemaining: shutdownSecondsRemaining > 0 ? shutdownSecondsRemaining : undefined,
     };
   });
 
@@ -146,15 +275,28 @@ export async function startServer(port: number = DEFAULT_PORT) {
 
             case 'command': {
               server.log.info({ action: msg.action, value: msg.value }, 'Remote command received');
-              // Forward command to extension(s)
+
+              // Handle server-side PC power controls
+              if (msg.action === 'shutdownPC') {
+                handleShutdownCommand(msg.value !== undefined ? msg.value : 30);
+                break;
+              } else if (msg.action === 'cancelShutdown') {
+                handleCancelShutdown();
+                break;
+              }
+
+              // Forward multimedia commands to extension(s)
               broadcastToExtensions(msg);
               break;
             }
 
             case 'state': {
-              lastKnownState = msg.state;
+              lastKnownState = {
+                ...msg.state,
+                shutdownSecondsLeft: shutdownSecondsRemaining > 0 ? shutdownSecondsRemaining : undefined,
+              };
               // Forward updated playback state to all remote controls
-              broadcastToRemotes(msg);
+              broadcastToRemotes({ type: 'state', state: lastKnownState });
               break;
             }
 
@@ -239,6 +381,7 @@ function getVideoTestPageHtml(): string {
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <title>Vinttea - Página de Prueba de Video</title>
   <style>
     body {
@@ -443,6 +586,7 @@ function getBuiltinWebTesterHtml(): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <title>Vinttea Remote Control</title>
   <style>
     :root {
@@ -785,16 +929,15 @@ function getBuiltinWebTesterHtml(): string {
         return;
       }
       if (navigator.vibrate) {
-        navigator.vibrate(40);
+        navigator.vibrate(30);
       }
       ws.send(JSON.stringify({ type: 'command', action, value }));
     }
 
     function onVolumeSlider(val) {
-      sendCommand('setVolume', val / 100);
+      sendCommand('setVolume', Number(val) / 100);
     }
 
-    // Connect immediately
     connectWs();
   </script>
 </body>
@@ -804,3 +947,4 @@ function getBuiltinWebTesterHtml(): string {
 if (process.env.NODE_ENV !== 'test') {
   startServer();
 }
+

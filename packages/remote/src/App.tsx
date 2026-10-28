@@ -66,9 +66,114 @@ const SERVICE_CONFIGS: Record<string, ServiceConfig> = {
   },
 };
 
+interface AnimeTheme {
+  name: string;
+  badge: string;
+  accent: string;
+  icon: 'dragonball' | 'onepiece' | 'naruto' | 'kimetsu' | 'shingeki';
+}
+
+function getAnimeTheme(title: string = '', series: string = ''): AnimeTheme | null {
+  const combined = `${title} ${series}`.toLowerCase();
+
+  if (/dragon\s*ball|dbz|goku|vegeta/i.test(combined)) {
+    return {
+      name: 'Dragon Ball',
+      badge: '🐉 DRAGON BALL',
+      accent: '#f59e0b',
+      icon: 'dragonball',
+    };
+  }
+  if (/one\s*piece|luffy|zoro|mugiwara/i.test(combined)) {
+    return {
+      name: 'One Piece',
+      badge: '🏴‍☠️ MUGIWARA',
+      accent: '#eab308',
+      icon: 'onepiece',
+    };
+  }
+  if (/naruto|boruto|shippuden/i.test(combined)) {
+    return {
+      name: 'Naruto',
+      badge: '🍥 ALDEA DE LA HOJA',
+      accent: '#f97316',
+      icon: 'naruto',
+    };
+  }
+  if (/kimetsu|demon\s*slayer|tanjiro/i.test(combined)) {
+    return {
+      name: 'Demon Slayer',
+      badge: '⚔️ DEMON SLAYER',
+      accent: '#0d9488',
+      icon: 'kimetsu',
+    };
+  }
+  if (/shingeki|attack\s*on\s*titan|eren/i.test(combined)) {
+    return {
+      name: 'Attack on Titan',
+      badge: '🛡️ LEGIÓN',
+      accent: '#10b981',
+      icon: 'shingeki',
+    };
+  }
+
+  return null;
+}
+
+function DragonBallSphere({ size = 32 }: { size?: number }) {
+  return (
+    <div
+      title="Esfera del Dragón de 4 estrellas (Toca para activar Ki)"
+      onClick={() => {
+        if (navigator.vibrate) {
+          navigator.vibrate([40, 60, 40]);
+        }
+      }}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        position: 'relative',
+        cursor: 'pointer',
+        flexShrink: 0,
+        boxShadow: '0 0 16px rgba(245, 158, 11, 0.8), inset 0 -3px 6px rgba(180, 83, 9, 0.9)',
+        background: 'radial-gradient(circle at 35% 30%, #fef08a 0%, #f59e0b 45%, #b45309 95%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        userSelect: 'none',
+      }}
+    >
+      {/* 4 ruby stars arranged in diamond */}
+      <svg width={size * 0.65} height={size * 0.65} viewBox="0 0 24 24">
+        <polygon points="12,2 13.5,6.5 18,6.5 14.5,9.5 16,14 12,11 8,14 9.5,9.5 6,6.5 10.5,6.5" fill="#dc2626" transform="translate(0, -3.5) scale(0.38) translate(-4, 0)" />
+        <polygon points="12,2 13.5,6.5 18,6.5 14.5,9.5 16,14 12,11 8,14 9.5,9.5 6,6.5 10.5,6.5" fill="#dc2626" transform="translate(0, 11.5) scale(0.38) translate(-4, 0)" />
+        <polygon points="12,2 13.5,6.5 18,6.5 14.5,9.5 16,14 12,11 8,14 9.5,9.5 6,6.5 10.5,6.5" fill="#dc2626" transform="translate(-7.5, 4) scale(0.38) translate(-4, 0)" />
+        <polygon points="12,2 13.5,6.5 18,6.5 14.5,9.5 16,14 12,11 8,14 9.5,9.5 6,6.5 10.5,6.5" fill="#dc2626" transform="translate(7.5, 4) scale(0.38) translate(-4, 0)" />
+      </svg>
+      {/* Specular gloss highlight */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '12%',
+          left: '18%',
+          width: '32%',
+          height: '24%',
+          borderRadius: '50%',
+          background: 'rgba(255, 255, 255, 0.75)',
+          filter: 'blur(1px)',
+          transform: 'rotate(-30deg)',
+          pointerEvents: 'none',
+        }}
+      />
+    </div>
+  );
+}
+
 export function App() {
   const [serverConnected, setServerConnected] = useState(false);
   const [extensionConnected, setExtensionConnected] = useState(false);
+  const [showShutdownModal, setShowShutdownModal] = useState(false);
   const [state, setState] = useState<PlayerState>({
     playing: false,
     title: 'Esperando video...',
@@ -178,7 +283,6 @@ export function App() {
     if (navigator.vibrate) navigator.vibrate(40);
   }
 
-  // Bind global pointermove and pointerup while scrubbing
   useEffect(() => {
     if (!isDragging) return;
 
@@ -209,6 +313,9 @@ export function App() {
     : state.position;
 
   const currentService = SERVICE_CONFIGS[state.service || 'generic'] || SERVICE_CONFIGS.generic;
+  const animeTheme = getAnimeTheme(state.title, state.series);
+  const activeAccent = animeTheme ? animeTheme.accent : currentService.accent;
+
   const isSkipVisible = !!state.skipButton?.visible;
   const skipText = state.skipButton?.text || 'Omitir intro';
 
@@ -225,7 +332,7 @@ export function App() {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: '1.45rem', fontWeight: 900, letterSpacing: '-0.5px' }}>
-            Vint<span style={{ color: currentService.accent }}>tea</span>
+            Vint<span style={{ color: activeAccent }}>tea</span>
           </span>
           <span
             style={{
@@ -242,6 +349,23 @@ export function App() {
           >
             {currentService.name}
           </span>
+          {animeTheme && (
+            <span
+              style={{
+                padding: '3px 8px',
+                borderRadius: 6,
+                fontSize: '0.68rem',
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                background: `${animeTheme.accent}22`,
+                color: animeTheme.accent,
+                border: `1px solid ${animeTheme.accent}55`,
+              }}
+            >
+              {animeTheme.badge}
+            </span>
+          )}
         </div>
 
         <div
@@ -280,11 +404,48 @@ export function App() {
         </div>
       </header>
 
+      {/* Floating Shutdown Alert Banner (if active) */}
+      {state.shutdownSecondsLeft !== undefined && state.shutdownSecondsLeft > 0 && (
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #dc2626, #991b1b)',
+            color: '#ffffff',
+            padding: '12px 16px',
+            borderRadius: 16,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 4px 20px rgba(220, 38, 38, 0.5)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 800, fontSize: '0.9rem' }}>
+            <span style={{ fontSize: '1.2rem' }}>⏳</span>
+            <span>Apagando PC en {state.shutdownSecondsLeft}s...</span>
+          </div>
+          <button
+            onClick={() => sendCommand('cancelShutdown')}
+            style={{
+              background: '#ffffff',
+              color: '#991b1b',
+              border: 'none',
+              padding: '6px 14px',
+              borderRadius: 8,
+              fontWeight: 800,
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+            }}
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
       {/* Main Now-Playing Media Card with Cover / Thumbnail */}
       <div
         style={{
           background: 'var(--card)',
-          border: '1px solid var(--card-border)',
+          border: `1px solid ${animeTheme ? `${activeAccent}44` : 'var(--card-border)'}`,
           borderRadius: 22,
           padding: '18px 16px',
           display: 'flex',
@@ -292,7 +453,7 @@ export function App() {
           gap: 12,
           position: 'relative',
           overflow: 'hidden',
-          boxShadow: '0 8px 30px rgba(0,0,0,0.4)',
+          boxShadow: animeTheme ? `0 8px 30px ${activeAccent}22` : '0 8px 30px rgba(0,0,0,0.4)',
         }}
       >
         {/* Ambient Glow behind card if thumbnail exists */}
@@ -344,8 +505,8 @@ export function App() {
                 width: 72,
                 height: 72,
                 borderRadius: 14,
-                background: `linear-gradient(135deg, ${currentService.accent}33, #151926)`,
-                border: `1px solid ${currentService.accent}44`,
+                background: `linear-gradient(135deg, ${activeAccent}33, #151926)`,
+                border: `1px solid ${activeAccent}44`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -353,30 +514,34 @@ export function App() {
                 flexShrink: 0,
               }}
             >
-              🎬
+              {animeTheme?.icon === 'dragonball' ? '🐉' : '🎬'}
             </div>
           )}
 
-          {/* Titles */}
+          {/* Titles & Metadata */}
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0, flex: 1, gap: 2 }}>
-            {state.series && (
-              <div
-                style={{
-                  fontSize: '0.8rem',
-                  fontWeight: 800,
-                  color: currentService.accent,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {state.series}
-              </div>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+              {state.series && (
+                <div
+                  style={{
+                    fontSize: '0.8rem',
+                    fontWeight: 800,
+                    color: activeAccent,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {state.series}
+                </div>
+              )}
+              {/* Dragon Ball Themed 4-Star Sphere Easter Egg */}
+              {animeTheme?.icon === 'dragonball' && <DragonBallSphere size={28} />}
+            </div>
 
-            {/* Dedicated Season / Saga Badge */}
+            {/* Dedicated Season / Saga Badge (ej. Saga de Pilaf en Dragon Ball 1986) */}
             {state.season && (
               <div style={{ display: 'flex', alignItems: 'center', marginTop: 2, marginBottom: 1 }}>
                 <span
@@ -388,9 +553,9 @@ export function App() {
                     borderRadius: 6,
                     fontSize: '0.72rem',
                     fontWeight: 700,
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    color: '#e2e8f0',
-                    border: '1px solid rgba(255, 255, 255, 0.14)',
+                    background: animeTheme ? `${activeAccent}18` : 'rgba(255, 255, 255, 0.08)',
+                    color: animeTheme ? activeAccent : '#e2e8f0',
+                    border: `1px solid ${animeTheme ? `${activeAccent}44` : 'rgba(255, 255, 255, 0.14)'}`,
                     letterSpacing: '0.02em',
                     maxWidth: '100%',
                     whiteSpace: 'nowrap',
@@ -398,7 +563,7 @@ export function App() {
                     textOverflow: 'ellipsis',
                   }}
                 >
-                  <span style={{ fontSize: '0.72rem' }}>🎞️</span>
+                  <span style={{ fontSize: '0.72rem' }}>{animeTheme ? '⭐' : '🎞️'}</span>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{state.season}</span>
                 </span>
               </div>
@@ -448,7 +613,7 @@ export function App() {
                 top: -32,
                 left: `clamp(35px, ${activePercent}%, calc(100% - 35px))`,
                 transform: 'translateX(-50%)',
-                background: currentService.accent,
+                background: activeAccent,
                 color: '#fff',
                 fontSize: '0.75rem',
                 fontWeight: 800,
@@ -492,7 +657,7 @@ export function App() {
                 style={{
                   width: `${activePercent}%`,
                   height: '100%',
-                  background: currentService.accent,
+                  background: activeAccent,
                   borderRadius: 4,
                 }}
               />
@@ -507,7 +672,7 @@ export function App() {
                   height: isDragging ? 16 : 12,
                   borderRadius: '50%',
                   background: '#ffffff',
-                  boxShadow: `0 0 10px ${currentService.accent}`,
+                  boxShadow: `0 0 10px ${activeAccent}`,
                   transition: 'width 0.15s, height 0.15s',
                 }}
               />
@@ -605,7 +770,7 @@ export function App() {
               </div>
             )}
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: '0.68rem', fontWeight: 800, color: currentService.accent, textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '0.68rem', fontWeight: 800, color: activeAccent, textTransform: 'uppercase' }}>
                 Siguiente ⏭️
               </div>
               <div style={{ fontSize: '0.8rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#fff' }}>
@@ -626,10 +791,10 @@ export function App() {
             padding: '14px 16px',
             borderRadius: 14,
             border: isSkipVisible
-              ? `1.5px solid ${currentService.accent}`
+              ? `1.5px solid ${activeAccent}`
               : '1px solid var(--card-border)',
             background: isSkipVisible
-              ? `linear-gradient(135deg, ${currentService.accent}22, ${currentService.accent}44)`
+              ? `linear-gradient(135deg, ${activeAccent}22, ${activeAccent}44)`
               : '#161924',
             color: isSkipVisible ? '#ffffff' : '#6b7280',
             fontWeight: 700,
@@ -639,16 +804,16 @@ export function App() {
             justifyContent: 'center',
             gap: 10,
             cursor: isSkipVisible ? 'pointer' : 'default',
-            opacity: isSkipVisible ? 1 : 0.45,
+            opacity: isSkipVisible ? 1 : 0.4,
             transition: 'all 0.25s ease',
             boxShadow: isSkipVisible
-              ? `0 0 18px ${currentService.accent}44`
+              ? `0 0 18px ${activeAccent}44`
               : 'none',
           }}
         >
           <IconFastForward
             size={20}
-            color={isSkipVisible ? currentService.accent : '#6b7280'}
+            color={isSkipVisible ? activeAccent : '#6b7280'}
           />
           <span>{skipText}</span>
           {isSkipVisible && (
@@ -657,9 +822,10 @@ export function App() {
                 fontSize: '0.65rem',
                 padding: '2px 6px',
                 borderRadius: 4,
-                background: currentService.accent,
+                background: activeAccent,
                 color: '#fff',
                 marginLeft: 4,
+                fontWeight: 800,
               }}
             >
               DISPONIBLE
@@ -690,9 +856,9 @@ export function App() {
             onClick={() => sendCommand('togglePlay')}
             style={{
               ...btnStyle,
-              background: currentService.accent,
-              borderColor: currentService.accent,
-              boxShadow: `0 4px 20px ${currentService.accent}44`,
+              background: activeAccent,
+              borderColor: activeAccent,
+              boxShadow: `0 4px 20px ${activeAccent}44`,
             }}
           >
             {state.playing ? (
@@ -789,7 +955,7 @@ export function App() {
             }}
             style={{
               flex: 1,
-              accentColor: currentService.accent,
+              accentColor: activeAccent,
               cursor: 'pointer',
               height: 6,
             }}
@@ -807,6 +973,128 @@ export function App() {
           </span>
         </div>
       </div>
+
+      {/* PC Power Off Trigger */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}>
+        <button
+          onClick={() => setShowShutdownModal(true)}
+          style={{
+            background: 'transparent',
+            border: '1px solid rgba(239, 68, 68, 0.35)',
+            color: '#f87171',
+            borderRadius: 12,
+            padding: '10px 18px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            fontSize: '0.85rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <span style={{ fontSize: '1.05rem' }}>⏻</span>
+          <span>Apagar la PC desde aquí</span>
+        </button>
+      </div>
+
+      {/* Confirmation Modal for PC Shutdown */}
+      {showShutdownModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              background: '#161924',
+              border: '1px solid #2e354a',
+              borderRadius: 22,
+              padding: 24,
+              maxWidth: 360,
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16,
+              boxShadow: '0 10px 40px rgba(0,0,0,0.8)',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: '2.5rem', color: '#ef4444' }}>⏻</div>
+            <div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#fff' }}>¿Apagar la computadora?</div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.4 }}>
+                Puedes iniciar una cuenta regresiva de 30 segundos (con opción a cancelar desde aquí) o apagarla de inmediato.
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                onClick={() => {
+                  sendCommand('shutdownPC', 30);
+                  setShowShutdownModal(false);
+                }}
+                style={{
+                  background: '#ef4444',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '14px',
+                  borderRadius: 12,
+                  fontWeight: 800,
+                  fontSize: '0.95rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 15px rgba(239, 68, 68, 0.4)',
+                }}
+              >
+                ⏱️ Apagar en 30s (Recomendado)
+              </button>
+
+              <button
+                onClick={() => {
+                  sendCommand('shutdownPC', 0);
+                  setShowShutdownModal(false);
+                }}
+                style={{
+                  background: '#1e2436',
+                  color: '#f87171',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  padding: '12px',
+                  borderRadius: 12,
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                }}
+              >
+                ⚡ Apagar de inmediato
+              </button>
+
+              <button
+                onClick={() => setShowShutdownModal(false)}
+                style={{
+                  background: 'transparent',
+                  color: 'var(--text-muted)',
+                  border: '1px solid var(--card-border)',
+                  padding: '10px',
+                  borderRadius: 12,
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Volver
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

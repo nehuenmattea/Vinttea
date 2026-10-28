@@ -81,12 +81,57 @@ export function clickElementSafely(el: HTMLElement): void {
 }
 
 /**
+ * Checks whether a skip intro/recap button is genuinely active on screen.
+ * Resolves bug where faded/finished buttons remained active or caused flickering.
+ */
+export function isSkipButtonTrulyActive(btn: HTMLElement | null): boolean {
+  if (!btn || !btn.isConnected) return false;
+
+  // 1. Accessibility attributes
+  if (btn.getAttribute('aria-hidden') === 'true') return false;
+  if (btn.hasAttribute('disabled')) return false;
+
+  // 2. Class names indicating hidden/fade-out
+  const className = (btn.className || '').toLowerCase();
+  if (
+    className.includes('hidden') ||
+    className.includes('fade-out') ||
+    className.includes('is-hidden') ||
+    className.includes('inactive')
+  ) {
+    return false;
+  }
+
+  // 3. Computed style check on button itself
+  const style = window.getComputedStyle(btn);
+  if (style.display === 'none' || style.visibility === 'hidden') return false;
+  if (style.pointerEvents === 'none') return false;
+  const opacity = parseFloat(style.opacity || '1');
+  if (opacity < 0.1) return false;
+
+  // 4. Must occupy physical screen space
+  const rect = btn.getBoundingClientRect();
+  if (rect.width < 10 || rect.height < 10) return false;
+
+  // 5. Parent chain check: if container or wrapper is hidden/faded, button is inactive
+  let parent = btn.parentElement;
+  while (parent && parent !== document.body && parent !== document.documentElement) {
+    const pStyle = window.getComputedStyle(parent);
+    if (pStyle.display === 'none' || pStyle.visibility === 'hidden') return false;
+    const pOpacity = parseFloat(pStyle.opacity || '1');
+    if (pOpacity < 0.05) return false;
+    parent = parent.parentElement;
+  }
+
+  return true;
+}
+
+/**
  * Searches for an interactive button matching selectors.
- * If includeFadedControls is true, it will find buttons even when the player control overlay has opacity: 0 (faded).
  */
 export function findInteractiveButton(
   selectors: string[],
-  includeFadedControls: boolean = true
+  includeFadedControls: boolean = false
 ): HTMLElement | null {
   for (const selector of selectors) {
     const elements = document.querySelectorAll<HTMLElement>(selector);
@@ -94,7 +139,6 @@ export function findInteractiveButton(
       if (!el.isConnected) continue;
 
       if (includeFadedControls) {
-        // As long as the button itself is not explicitly display: none or disabled
         const style = window.getComputedStyle(el);
         if (style.display !== 'none' && style.visibility !== 'hidden') {
           return el;
@@ -127,6 +171,28 @@ function ensureFsStyle() {
     const style = document.createElement('style');
     style.id = 'vinttea-fs-style';
     style.textContent = `
+      html.vinttea-fs-body-lock,
+      body.vinttea-fs-body-lock {
+        overflow: hidden !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        background: #000 !important;
+      }
+
+      /* Neutralize any ancestor transforms/containment that trap position: fixed */
+      .vinttea-fs-ancestor {
+        transform: none !important;
+        filter: none !important;
+        perspective: none !important;
+        contain: none !important;
+        clip-path: none !important;
+        overflow: visible !important;
+        max-width: none !important;
+        max-height: none !important;
+      }
+
       .vinttea-virtual-fullscreen {
         position: fixed !important;
         top: 0 !important;
@@ -138,19 +204,28 @@ function ensureFsStyle() {
         z-index: 2147483647 !important;
         background: #000 !important;
         margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
       }
-      .vinttea-virtual-fullscreen video {
-        width: 100% !important;
-        height: 100% !important;
-        max-width: 100% !important;
-        max-height: 100% !important;
+
+      .vinttea-virtual-fullscreen video,
+      video.vinttea-video-fullscreen {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        max-width: 100vw !important;
+        max-height: 100vh !important;
         object-fit: contain !important;
-      }
-      video.vinttea-virtual-fullscreen {
-        object-fit: contain !important;
-      }
-      body.vinttea-fs-body-lock {
-        overflow: hidden !important;
+        background: #000 !important;
+        z-index: 2147483647 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
       }
     `;
     (document.head || document.documentElement).appendChild(style);
@@ -171,11 +246,11 @@ export function isFullscreenActive(): boolean {
 }
 
 /**
- * Bulletproof fullscreen toggle that handles:
- * 1. Window-level OS fullscreen via background script (hides taskbar and desktop icons).
- * 2. Native button click and keyboard 'f' event.
- * 3. Double-click simulation on video.
- * 4. Virtual CSS Fullscreen (100vw/100vh) fallback to ensure video fills the display.
+ * Bulletproof fullscreen toggle that guarantees true edge-to-edge video display:
+ * 1. Window-level OS fullscreen via background script (hides Windows taskbar, desktop icons, browser chrome).
+ * 2. Neutralizes parent CSS containment/transforms so video is untrapped.
+ * 3. Expands video element to 100vw x 100vh (object-fit: contain).
+ * 4. Dispatches native button clicks and 'f' shortcut.
  */
 export function toggleReliableFullscreen(
   videoEl: HTMLVideoElement | null,
@@ -195,7 +270,15 @@ export function toggleReliableFullscreen(
     document.querySelectorAll('.vinttea-virtual-fullscreen').forEach((el) => {
       el.classList.remove('vinttea-virtual-fullscreen');
     });
+    document.querySelectorAll('.vinttea-video-fullscreen').forEach((el) => {
+      el.classList.remove('vinttea-video-fullscreen');
+    });
+    document.querySelectorAll('.vinttea-fs-ancestor').forEach((el) => {
+      el.classList.remove('vinttea-fs-ancestor');
+    });
+    document.documentElement.classList.remove('vinttea-fs-body-lock');
     document.body.classList.remove('vinttea-fs-body-lock');
+
     simulateKey('Escape', 'Escape', 27);
     chrome.runtime.sendMessage({ type: 'vinttea_window_fullscreen', fullscreen: false }).catch(() => {});
     return;
@@ -203,29 +286,37 @@ export function toggleReliableFullscreen(
 
   // 1. Try native button first
   if (fsBtnSelectors.length > 0) {
-    const btn = findInteractiveButton(fsBtnSelectors);
+    const btn = findInteractiveButton(fsBtnSelectors, true);
     if (btn) {
       clickElementSafely(btn);
     }
   }
 
-  // 2. Dispatch 'f' keydown/keyup
+  // 2. Dispatch 'f' and 'F' keydown/keyup on window, document, and video
   simulateKey('f', 'KeyF', 70);
-
-  // 3. Double click on video
+  simulateKey('F', 'KeyF', 70);
   if (videoEl) {
-    try {
-      videoEl.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, view: window }));
-    } catch {}
+    simulateKey('f', 'KeyF', 70, videoEl);
   }
 
-  // 4. Virtual Fullscreen fallback + Window Fullscreen message
+  // 3. Untrap and expand video to true 100vw x 100vh edge-to-edge
   const target = containerEl || videoEl?.parentElement || videoEl;
   if (target) {
     target.classList.add('vinttea-virtual-fullscreen');
-    document.body.classList.add('vinttea-fs-body-lock');
   }
+  if (videoEl) {
+    videoEl.classList.add('vinttea-video-fullscreen');
+  }
+
+  // Neutralize ancestors
+  let el: HTMLElement | null = (target || videoEl)?.parentElement || null;
+  while (el && el !== document.body && el !== document.documentElement) {
+    el.classList.add('vinttea-fs-ancestor');
+    el = el.parentElement;
+  }
+
+  document.documentElement.classList.add('vinttea-fs-body-lock');
+  document.body.classList.add('vinttea-fs-body-lock');
 
   chrome.runtime.sendMessage({ type: 'vinttea_window_fullscreen', fullscreen: true }).catch(() => {});
 }
-

@@ -2,6 +2,7 @@ import type { SiteAdapter, PlayerState, EpisodePreview } from './types';
 import {
   simulateKey,
   findInteractiveButton,
+  isSkipButtonTrulyActive,
   clickElementSafely,
   wakePlayerControls,
   toggleReliableFullscreen,
@@ -56,15 +57,16 @@ export class CrunchyrollAdapter extends GenericAdapter implements SiteAdapter {
   }
 
   /**
-   * Fixed Crunchyroll fullscreen:
-   * Uses toggleReliableFullscreen which combines native button clicks, 'f' shortcut,
-   * video dblclick, and virtual CSS fullscreen + window maximization fallback.
+   * Fixed Crunchyroll true fullscreen:
+   * Uses toggleReliableFullscreen which combines window-level OS fullscreen,
+   * CSS ancestor untrapping (100vw x 100vh), native button clicks and keyboard shortcuts.
    */
   override toggleFullscreen(forceState?: number): void {
     const video = document.querySelector<HTMLVideoElement>('video');
-    const playerContainer = document.querySelector<HTMLElement>(
-      '#vilos-player, .velocity-player-package, #player0, [data-testid="player-wrapper"], div[class*="player-wrapper"]'
-    ) || video?.parentElement;
+    const playerContainer =
+      document.querySelector<HTMLElement>(
+        '#vilos, #vilos-player, .velocity-player-package, #player0, [data-testid="player-wrapper"], [class*="video-player-wrapper" i], div[class*="player-wrapper"]'
+      ) || video?.parentElement;
 
     toggleReliableFullscreen(
       video,
@@ -77,6 +79,7 @@ export class CrunchyrollAdapter extends GenericAdapter implements SiteAdapter {
         'button[title*="fullscreen" i]',
         'button[aria-label*="pantalla completa" i]',
         'button[aria-label*="fullscreen" i]',
+        'button[aria-label*="full screen" i]',
         '.fullscreen-icon',
         '[class*="fullscreen-button" i]',
         '[class*="fullscreen_button" i]',
@@ -118,91 +121,231 @@ export class CrunchyrollAdapter extends GenericAdapter implements SiteAdapter {
   }
 
   /**
-   * Helper to locate Crunchyroll's Skip Intro button.
+   * Robust Skip Button detection:
+   * Accurately detects whether "Omitir intro" or "Omitir resumen" is genuinely active,
+   * avoiding flickering and fading properly once the intro or recap ends.
    */
-  private findSkipButton(): HTMLElement | null {
-    const btn = findInteractiveButton([
+  private getSkipButtonInfo(): { visible: boolean; text: string; element: HTMLElement | null } {
+    const selectors = [
       '[data-testid="skip-button"]',
       '[data-testid="skip-intro-button"]',
+      '[data-testid="skip-recap-button"]',
       '[data-t="skip-intro"]',
+      '[data-t="skip-recap"]',
       '.vilos-skip-intro',
       '.skip-intro',
       '[class*="skip-button" i]',
       '[class*="skipintro" i]',
       '[class*="SkipIntro" i]',
-    ]);
-    if (btn) return btn;
+      '[class*="skip-recap" i]',
+      '[class*="skiprecap" i]',
+    ];
+
+    const candidates: HTMLElement[] = [];
+    for (const sel of selectors) {
+      const matches = Array.from(document.querySelectorAll<HTMLElement>(sel));
+      for (const m of matches) {
+        if (!candidates.includes(m)) candidates.push(m);
+      }
+    }
 
     const allButtons = Array.from(
       document.querySelectorAll<HTMLElement>('button, div[role="button"], a')
     );
     for (const b of allButtons) {
       const txt = (b.textContent || '').trim().toLowerCase();
+      const aria = (b.getAttribute('aria-label') || '').toLowerCase();
       if (
-        txt.includes('omitir intro') ||
-        txt.includes('skip intro') ||
-        txt.includes('omitir resumen') ||
-        txt.includes('skip recap') ||
-        txt === 'omitir' ||
-        txt === 'skip'
+        txt.includes('omitir') ||
+        txt.includes('skip') ||
+        aria.includes('omitir') ||
+        aria.includes('skip')
       ) {
-        return b;
+        if (!candidates.includes(b)) candidates.push(b);
       }
     }
-    return null;
+
+    // 1. Check if any button is truly active right now
+    for (const btn of candidates) {
+      if (isSkipButtonTrulyActive(btn)) {
+        const fullTxt = (
+          (btn.textContent || '') +
+          ' ' +
+          (btn.getAttribute('aria-label') || '') +
+          ' ' +
+          (btn.getAttribute('title') || '')
+        ).toLowerCase();
+
+        let label = 'Omitir intro';
+        if (fullTxt.includes('resumen') || fullTxt.includes('recap')) {
+          label = 'Omitir resumen';
+        } else if (
+          fullTxt.includes('créditos') ||
+          fullTxt.includes('credits') ||
+          fullTxt.includes('ending') ||
+          fullTxt.includes('outro')
+        ) {
+          label = 'Omitir créditos';
+        } else if (fullTxt.includes('intro') || fullTxt.includes('opening')) {
+          label = 'Omitir intro';
+        } else {
+          const video = document.querySelector<HTMLVideoElement>('video');
+          const time = video?.currentTime || 0;
+          label = time < 100 ? 'Omitir resumen' : 'Omitir intro';
+        }
+
+        return { visible: true, text: label, element: btn };
+      }
+    }
+
+    // 2. If not active, extract candidate text for idle display
+    for (const btn of candidates) {
+      if (btn.isConnected) {
+        const fullTxt = ((btn.textContent || '') + ' ' + (btn.getAttribute('aria-label') || '')).toLowerCase();
+        let label = 'Omitir intro';
+        if (fullTxt.includes('resumen') || fullTxt.includes('recap')) {
+          label = 'Omitir resumen';
+        }
+        return { visible: false, text: label, element: btn };
+      }
+    }
+
+    return { visible: false, text: 'Omitir intro', element: null };
   }
 
   override skipIntro(): void {
     wakePlayerControls();
-    const skipBtn = this.findSkipButton();
-    if (skipBtn) {
-      clickElementSafely(skipBtn);
+    const info = this.getSkipButtonInfo();
+    if (info.element) {
+      clickElementSafely(info.element);
     }
     // Also dispatch Crunchyroll's native skip intro keyboard shortcuts 's' and 'S'
     simulateKey('s', 'KeyS', 83);
     simulateKey('S', 'KeyS', 83);
   }
 
+  /**
+   * Extracts anime season or saga (e.g. Dragon Ball 1986 sagas like "Saga de Pilaf", "Saga de la Patrulla Roja")
+   */
+  private extractSeason(seriesTitle: string): string | undefined {
+    // 1. Check Schema.org JSON-LD (most reliable for anime sagas)
+    try {
+      const scripts = Array.from(
+        document.querySelectorAll<HTMLScriptElement>('script[type="application/ld+json"]')
+      );
+      for (const s of scripts) {
+        if (!s.textContent) continue;
+        const data = JSON.parse(s.textContent);
+        const checkItem = (item: any): string | null => {
+          if (!item) return null;
+          if (item['@type'] === 'TVEpisode' || item.partOfSeason || item.partOfSeries) {
+            const seasonName = item.partOfSeason?.name || item.season?.name;
+            if (seasonName && typeof seasonName === 'string') return seasonName.trim();
+          }
+          if (item['@type'] === 'TVSeason' && item.name) {
+            return String(item.name).trim();
+          }
+          if (Array.isArray(item['@graph'])) {
+            for (const g of item['@graph']) {
+              const res = checkItem(g);
+              if (res) return res;
+            }
+          }
+          return null;
+        };
+        const found = checkItem(data);
+        if (found) {
+          return this.cleanSeasonName(found, seriesTitle);
+        }
+      }
+    } catch {}
+
+    // 2. Season selector dropdown button or text on Crunchyroll
+    const seasonSelectors = [
+      '[data-testid="season-selector-button"]',
+      'button[data-testid="season-selector-button"]',
+      '[data-t="season-title"]',
+      '.season-title',
+      '[class*="season-title" i]',
+      '[class*="seasonTitle" i]',
+      '[data-testid="season-name"]',
+      '[class*="seasonSelector" i] [class*="title" i]',
+      '.season-selector',
+      '[class*="select-season" i]',
+    ];
+    for (const sel of seasonSelectors) {
+      const el = document.querySelector<HTMLElement>(sel);
+      const txt = el?.textContent?.trim();
+      if (txt && txt.length > 1 && txt.length < 80) {
+        return this.cleanSeasonName(txt, seriesTitle);
+      }
+    }
+
+    // 3. Breadcrumbs
+    const breadcrumbs = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        'nav[aria-label*="readcrumb" i] a, .erc-breadcrumb a, .breadcrumb a, [class*="breadcrumb" i] a, [class*="breadcrumb" i] span'
+      )
+    );
+    if (breadcrumbs.length >= 2) {
+      for (let i = 1; i < breadcrumbs.length; i++) {
+        const txt = (breadcrumbs[i].textContent || '').trim();
+        if (
+          /temporada|season|saga|arco|t\d+|serie|part/i.test(txt) &&
+          txt.length < 70 &&
+          txt !== seriesTitle
+        ) {
+          return this.cleanSeasonName(txt, seriesTitle);
+        }
+      }
+    }
+
+    // 4. Subtitle or episode metadata row
+    const metaRow = document.querySelector<HTMLElement>(
+      '[class*="episode-header" i], [class*="current-media" i], [data-t="episode-header"]'
+    );
+    if (metaRow) {
+      const match = metaRow.textContent?.match(
+        /(Temporada\s+\d+|Season\s+\d+|Saga\s+[^-\n\r|,]+|Arco\s+[^-\n\r|,]+|T\d+\s*:\s*E\d+)/i
+      );
+      if (match && match[1]) {
+        return this.cleanSeasonName(match[1].trim(), seriesTitle);
+      }
+    }
+
+    return undefined;
+  }
+
+  private cleanSeasonName(raw: string, seriesTitle: string): string {
+    let clean = raw.trim();
+    if (seriesTitle) {
+      // Remove repetitive "Dragon Ball (Saga de Pilaf)" -> "Saga de Pilaf"
+      clean = clean
+        .replace(new RegExp(`^${seriesTitle}\\s*[-–:]?\\s*\\(?`, 'i'), '')
+        .replace(/\)$/, '')
+        .trim();
+    }
+    return clean || raw;
+  }
+
   override getState(): PlayerState | null {
     const baseState = super.getState();
     if (!baseState) return null;
 
-    // Detect Anime title, Season/Saga & Episode title
+    // Detect Anime title & Episode title
     const seriesEl = document.querySelector<HTMLElement>(
       '[data-t="show-title"], .show-title-link, a[href*="/series/"]'
-    );
-    const seasonEl = document.querySelector<HTMLElement>(
-      '[data-t="season-title"], .season-title, .season-selector, [class*="season-title" i], [class*="seasonTitle" i], [data-testid="season-name"]'
     );
     const episodeEl = document.querySelector<HTMLElement>(
       '[data-t="episode-title"], h1.title, .episode-title, h4.title'
     );
 
     const seriesTitle = seriesEl?.textContent?.trim() || '';
-    let seasonTitle = seasonEl?.textContent?.trim() || '';
     const episodeTitle = episodeEl?.textContent?.trim() || '';
+    const seasonTitle = this.extractSeason(seriesTitle);
 
-    // If seasonTitle is not found directly, check breadcrumbs or subtitles
-    if (!seasonTitle) {
-      const breadcrumbs = Array.from(
-        document.querySelectorAll<HTMLElement>(
-          '.breadcrumb a, [class*="breadcrumb" i] span, [class*="breadcrumb" i] a'
-        )
-      );
-      for (const b of breadcrumbs) {
-        const txt = (b.textContent || '').trim();
-        if (/temporada|season|saga|arco|t\d+/i.test(txt) && txt !== seriesTitle) {
-          seasonTitle = txt;
-          break;
-        }
-      }
-    }
-
-    // Detect Skip Intro button:
-    // Even if controls fade out, as long as Crunchyroll keeps the skip button in DOM, it is ACTIVE and CLICKABLE!
-    const skipBtn = this.findSkipButton();
-    const skipVisible = !!skipBtn && skipBtn.isConnected;
-    const skipText = skipBtn?.textContent?.trim() || 'Omitir intro';
+    // Skip Button status: checks genuine activity so it doesn't flicker or linger
+    const skipInfo = this.getSkipButtonInfo();
 
     // Extract Thumbnails: Current, Next, Prev
     const ogImage = document.querySelector('meta[property="og:image"]')?.getAttribute('content');
@@ -254,8 +397,8 @@ export class CrunchyrollAdapter extends GenericAdapter implements SiteAdapter {
       nextPreview: nextPreview || baseState.nextPreview,
       prevPreview: prevPreview || baseState.prevPreview,
       skipButton: {
-        visible: skipVisible,
-        text: skipText.length > 25 ? 'Omitir intro' : skipText,
+        visible: skipInfo.visible,
+        text: skipInfo.text,
       },
     };
   }

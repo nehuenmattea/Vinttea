@@ -156,6 +156,7 @@ export default defineBackground(() => {
   }
 
   let lastSavedWindowState: chrome.windows.WindowState = 'maximized';
+  let lastKnownPlayerState: any = null;
 
   async function handleFullscreenCommand() {
     const tab = await getTargetTab();
@@ -215,11 +216,21 @@ export default defineBackground(() => {
   // Listen for messages from content scripts
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'vinttea_state_update') {
+      const state = message.state;
+      const hasMediaContent = state && (state.playing || (state.duration && state.duration > 0) || state.title);
+
+      // If this frame has no meaningful media state, but we already have an active media frame, ignore to avoid collision
+      if (!hasMediaContent && lastKnownPlayerState && (lastKnownPlayerState.playing || (lastKnownPlayerState.duration && lastKnownPlayerState.duration > 0))) {
+        sendResponse({ received: false, ignored: true });
+        return;
+      }
+
       if (sender.tab?.id) {
         lastActiveMediaTabId = sender.tab.id;
         lastActiveMediaFrameId = sender.frameId ?? 0;
       }
-      sendToServer({ type: 'state', state: message.state });
+      lastKnownPlayerState = state;
+      sendToServer({ type: 'state', state });
       sendResponse({ received: true });
     } else if (message.type === 'vinttea_window_fullscreen') {
       if (sender.tab?.windowId) {
