@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import type { SiteAdapter, PlayerState, EpisodePreview } from './types';
 import {
   findInteractiveButton,
@@ -7,10 +6,6 @@ import {
   toggleReliableFullscreen,
   isFullscreenActive,
 } from './utils';
-=======
-import type { SiteAdapter, PlayerState } from './types';
-import { findVisibleButton, isElementVisible, simulateKey } from './utils';
->>>>>>> a9ee81ec18efac0fab6dc35eb594311bcac408ac
 import { GenericAdapter } from './generic';
 
 export class YouTubeAdapter extends GenericAdapter implements SiteAdapter {
@@ -19,7 +14,6 @@ export class YouTubeAdapter extends GenericAdapter implements SiteAdapter {
 
   matches(url: string): boolean {
     return (
-<<<<<<< HEAD
       (url.includes('youtube.com') || url.includes('youtu.be')) &&
       !url.includes('music.youtube.com')
     );
@@ -42,17 +36,6 @@ export class YouTubeAdapter extends GenericAdapter implements SiteAdapter {
 
   override nextEpisode(): void {
     const nextBtn = findInteractiveButton(['.ytp-next-button']);
-=======
-      (url.includes('youtube.com/watch') ||
-        url.includes('youtube.com/embed') ||
-        url.includes('youtube.com/shorts')) &&
-      !url.includes('music.youtube.com')
-    );
-  }
-
-  override nextEpisode(): void {
-    const nextBtn = findVisibleButton(['.ytp-next-button']);
->>>>>>> a9ee81ec18efac0fab6dc35eb594311bcac408ac
     if (nextBtn) {
       clickElementSafely(nextBtn);
     } else {
@@ -61,11 +44,7 @@ export class YouTubeAdapter extends GenericAdapter implements SiteAdapter {
   }
 
   override prevEpisode(): void {
-<<<<<<< HEAD
     const prevBtn = findInteractiveButton(['.ytp-prev-button']);
-=======
-    const prevBtn = findVisibleButton(['.ytp-prev-button']);
->>>>>>> a9ee81ec18efac0fab6dc35eb594311bcac408ac
     if (prevBtn) {
       clickElementSafely(prevBtn);
     } else {
@@ -73,7 +52,6 @@ export class YouTubeAdapter extends GenericAdapter implements SiteAdapter {
     }
   }
 
-<<<<<<< HEAD
   override toggleFullscreen(forceState?: number): void {
     const video = this.getYouTubeVideo();
     const playerContainer =
@@ -90,38 +68,19 @@ export class YouTubeAdapter extends GenericAdapter implements SiteAdapter {
       ],
       forceState
     );
-=======
-  override toggleFullscreen(): void {
-    const fsBtn = findVisibleButton(['.ytp-fullscreen-button']);
-    if (fsBtn) {
-      fsBtn.click();
-    } else {
-      simulateKey('f', 'KeyF', 70);
-    }
->>>>>>> a9ee81ec18efac0fab6dc35eb594311bcac408ac
   }
 
   override skipIntro(): void {
     // On YouTube, skipIntro skips ads or sponsor segments
-<<<<<<< HEAD
     const skipAdBtn = findInteractiveButton([
-=======
-    const skipAdBtn = findVisibleButton([
->>>>>>> a9ee81ec18efac0fab6dc35eb594311bcac408ac
       '.ytp-skip-ad-button',
       '.ytp-ad-skip-button',
       '.ytp-ad-skip-button-modern',
       'button.ytp-ad-skip-button-slot',
-<<<<<<< HEAD
       '.ytp-ad-overlay-close-button',
     ]);
     if (skipAdBtn) {
       clickElementSafely(skipAdBtn);
-=======
-    ]);
-    if (skipAdBtn) {
-      skipAdBtn.click();
->>>>>>> a9ee81ec18efac0fab6dc35eb594311bcac408ac
     }
   }
 
@@ -136,7 +95,6 @@ export class YouTubeAdapter extends GenericAdapter implements SiteAdapter {
     let title = titleEl?.textContent?.trim() || document.title || 'YouTube Video';
     title = title.replace(/\s*-\s*YouTube$/i, '').trim();
 
-<<<<<<< HEAD
     // Channel / Creator name
     const channelEl = document.querySelector<HTMLElement>(
       'ytd-channel-name yt-formatted-string#text, #channel-name a, #owner #channel-name a'
@@ -145,22 +103,11 @@ export class YouTubeAdapter extends GenericAdapter implements SiteAdapter {
 
     // Check if Skip Ad button exists in DOM
     const skipAdBtn = findInteractiveButton([
-=======
-    // Channel name
-    const channelEl = document.querySelector<HTMLElement>(
-      'ytd-channel-name yt-formatted-string#text, #channel-name a'
-    );
-    const channelName = channelEl?.textContent?.trim() || '';
-
-    // Check if Skip Ad is visible
-    const skipAdBtn = findVisibleButton([
->>>>>>> a9ee81ec18efac0fab6dc35eb594311bcac408ac
       '.ytp-skip-ad-button',
       '.ytp-ad-skip-button',
       '.ytp-ad-skip-button-modern',
       'button.ytp-ad-skip-button-slot',
     ]);
-<<<<<<< HEAD
     const skipVisible = !!skipAdBtn;
 
     // Extract current video thumbnail
@@ -212,15 +159,11 @@ export class YouTubeAdapter extends GenericAdapter implements SiteAdapter {
       'ytd-playlist-panel-renderer .header-title, #playlist-header .title, .ytd-playlist-panel-renderer h3'
     );
     const playlistTitle = playlistEl?.textContent?.trim();
-=======
-    const skipVisible = !!skipAdBtn && isElementVisible(skipAdBtn);
->>>>>>> a9ee81ec18efac0fab6dc35eb594311bcac408ac
 
     return {
       playing: !video.paused && !video.ended,
       title: title || 'YouTube Video',
       series: channelName || undefined,
-<<<<<<< HEAD
       season: playlistTitle || undefined,
       service: 'youtube',
       position: Math.round(video.currentTime),
@@ -231,17 +174,11 @@ export class YouTubeAdapter extends GenericAdapter implements SiteAdapter {
       playbackRate: video.playbackRate,
       thumbnail,
       nextPreview,
-=======
-      service: 'youtube',
->>>>>>> a9ee81ec18efac0fab6dc35eb594311bcac408ac
       skipButton: {
         visible: skipVisible,
         text: 'Omitir anuncio',
       },
-<<<<<<< HEAD
       updatedAt: Date.now(),
-=======
->>>>>>> a9ee81ec18efac0fab6dc35eb594311bcac408ac
     };
   }
 }
