@@ -11,6 +11,7 @@ import {
   IconVolumeMute,
   IconFullscreen,
   IconFastForward,
+  IconPower,
 } from './icons';
 
 function formatTime(secs: number): string {
@@ -120,7 +121,7 @@ function getAnimeTheme(title: string = '', series: string = ''): AnimeTheme | nu
   return null;
 }
 
-function DragonBallSphere({ size = 32 }: { size?: number }) {
+function DragonBallSphere({ size = 36 }: { size?: number }) {
   return (
     <div
       title="Esfera del Dragón de 4 estrellas (Toca para activar Ki)"
@@ -136,31 +137,44 @@ function DragonBallSphere({ size = 32 }: { size?: number }) {
         position: 'relative',
         cursor: 'pointer',
         flexShrink: 0,
-        boxShadow: '0 0 16px rgba(245, 158, 11, 0.8), inset 0 -3px 6px rgba(180, 83, 9, 0.9)',
-        background: 'radial-gradient(circle at 35% 30%, #fef08a 0%, #f59e0b 45%, #b45309 95%)',
+        boxShadow: '0 0 18px rgba(245, 158, 11, 0.85), inset 0 -3px 8px rgba(180, 83, 9, 0.9)',
+        background: 'radial-gradient(circle at 35% 30%, #fef08a 0%, #f59e0b 50%, #b45309 95%)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         userSelect: 'none',
       }}
     >
-      {/* 4 ruby stars arranged in diamond */}
-      <svg width={size * 0.65} height={size * 0.65} viewBox="0 0 24 24">
-        <polygon points="12,2 13.5,6.5 18,6.5 14.5,9.5 16,14 12,11 8,14 9.5,9.5 6,6.5 10.5,6.5" fill="#dc2626" transform="translate(0, -3.5) scale(0.38) translate(-4, 0)" />
-        <polygon points="12,2 13.5,6.5 18,6.5 14.5,9.5 16,14 12,11 8,14 9.5,9.5 6,6.5 10.5,6.5" fill="#dc2626" transform="translate(0, 11.5) scale(0.38) translate(-4, 0)" />
-        <polygon points="12,2 13.5,6.5 18,6.5 14.5,9.5 16,14 12,11 8,14 9.5,9.5 6,6.5 10.5,6.5" fill="#dc2626" transform="translate(-7.5, 4) scale(0.38) translate(-4, 0)" />
-        <polygon points="12,2 13.5,6.5 18,6.5 14.5,9.5 16,14 12,11 8,14 9.5,9.5 6,6.5 10.5,6.5" fill="#dc2626" transform="translate(7.5, 4) scale(0.38) translate(-4, 0)" />
+      {/* 4 ruby stars arranged cleanly in diamond formation */}
+      <svg width={size * 0.72} height={size * 0.72} viewBox="0 0 100 100">
+        <defs>
+          <polygon
+            id="db-star"
+            points="0,-6.5 1.9,-2.1 6.5,-1.5 3.2,1.8 3.9,6.4 0,4.2 -3.9,6.4 -3.2,1.8 -6.5,-1.5 -1.9,-2.1"
+            fill="#dc2626"
+            stroke="#991b1b"
+            strokeWidth="0.5"
+          />
+        </defs>
+        {/* Top Star */}
+        <use href="#db-star" transform="translate(50, 32)" />
+        {/* Bottom Star */}
+        <use href="#db-star" transform="translate(50, 68)" />
+        {/* Left Star */}
+        <use href="#db-star" transform="translate(32, 50)" />
+        {/* Right Star */}
+        <use href="#db-star" transform="translate(68, 50)" />
       </svg>
       {/* Specular gloss highlight */}
       <div
         style={{
           position: 'absolute',
-          top: '12%',
-          left: '18%',
+          top: '10%',
+          left: '16%',
           width: '32%',
           height: '24%',
           borderRadius: '50%',
-          background: 'rgba(255, 255, 255, 0.75)',
+          background: 'rgba(255, 255, 255, 0.8)',
           filter: 'blur(1px)',
           transform: 'rotate(-30deg)',
           pointerEvents: 'none',
@@ -320,7 +334,7 @@ export function App() {
   const skipText = state.skipButton?.text || 'Omitir intro';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 48 }}>
       {/* Header */}
       <header
         style={{
@@ -368,39 +382,64 @@ export function App() {
           )}
         </div>
 
-        <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '5px 12px',
-            borderRadius: 9999,
-            fontSize: '0.75rem',
-            fontWeight: 600,
-            background: 'var(--card)',
-            border: '1px solid var(--card-border)',
-          }}
-        >
-          <span
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Quick Power Off button right in header */}
+          <button
+            onClick={() => setShowShutdownModal(true)}
+            title="Apagar la PC"
             style={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              background:
-                serverConnected && extensionConnected
-                  ? 'var(--success)'
-                  : serverConnected
-                  ? 'var(--warning)'
-                  : '#ef4444',
+              background: 'rgba(239, 68, 68, 0.15)',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              color: '#f87171',
+              borderRadius: 9999,
+              padding: '5px 10px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              cursor: 'pointer',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              transition: 'all 0.2s',
             }}
-          />
-          <span>
-            {serverConnected && extensionConnected
-              ? 'PC Conectada'
-              : serverConnected
-              ? 'Extensión Offline'
-              : 'Desconectado'}
-          </span>
+          >
+            <IconPower size={13} color="#f87171" />
+            <span>Apagar</span>
+          </button>
+
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '5px 12px',
+              borderRadius: 9999,
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              background: 'var(--card)',
+              border: '1px solid var(--card-border)',
+            }}
+          >
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                background:
+                  serverConnected && extensionConnected
+                    ? 'var(--success)'
+                    : serverConnected
+                    ? 'var(--warning)'
+                    : '#ef4444',
+              }}
+            />
+            <span>
+              {serverConnected && extensionConnected
+                ? 'PC Conectada'
+                : serverConnected
+                ? 'Extensión Offline'
+                : 'Desconectado'}
+            </span>
+          </div>
         </div>
       </header>
 
@@ -538,7 +577,7 @@ export function App() {
                 </div>
               )}
               {/* Dragon Ball Themed 4-Star Sphere Easter Egg */}
-              {animeTheme?.icon === 'dragonball' && <DragonBallSphere size={28} />}
+              {animeTheme?.icon === 'dragonball' && <DragonBallSphere size={36} />}
             </div>
 
             {/* Dedicated Season / Saga Badge (ej. Saga de Pilaf en Dragon Ball 1986) */}
@@ -917,13 +956,13 @@ export function App() {
             onClick={() => sendCommand('toggleFullscreen')}
             style={{
               ...btnStyle,
-              background: state.fullscreen ? 'rgba(99, 102, 241, 0.25)' : undefined,
-              borderColor: state.fullscreen ? '#818cf8' : undefined,
-              boxShadow: state.fullscreen ? '0 0 16px rgba(99, 102, 241, 0.4)' : undefined,
+              background: state.fullscreen ? 'rgba(99, 102, 241, 0.25)' : '#1d2232',
+              borderColor: state.fullscreen ? '#818cf8' : 'var(--card-border)',
+              boxShadow: state.fullscreen ? '0 0 16px rgba(99, 102, 241, 0.4)' : 'none',
             }}
           >
-            <IconFullscreen size={22} color={state.fullscreen ? '#818cf8' : undefined} />
-            <span style={{ ...btnLabelStyle, color: state.fullscreen ? '#818cf8' : undefined }}>
+            <IconFullscreen size={22} color={state.fullscreen ? '#818cf8' : '#f3f4f6'} />
+            <span style={{ ...btnLabelStyle, color: state.fullscreen ? '#818cf8' : 'var(--text-muted)' }}>
               {state.fullscreen ? 'Salir pantalla' : 'Pantalla compl.'}
             </span>
           </button>
@@ -975,25 +1014,25 @@ export function App() {
       </div>
 
       {/* PC Power Off Trigger */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}>
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
         <button
           onClick={() => setShowShutdownModal(true)}
           style={{
-            background: 'transparent',
+            background: 'rgba(239, 68, 68, 0.08)',
             border: '1px solid rgba(239, 68, 68, 0.35)',
             color: '#f87171',
-            borderRadius: 12,
-            padding: '10px 18px',
+            borderRadius: 14,
+            padding: '12px 20px',
             display: 'inline-flex',
             alignItems: 'center',
-            gap: 8,
-            fontSize: '0.85rem',
+            gap: 10,
+            fontSize: '0.9rem',
             fontWeight: 700,
             cursor: 'pointer',
             transition: 'all 0.2s ease',
           }}
         >
-          <span style={{ fontSize: '1.05rem' }}>⏻</span>
+          <IconPower size={18} color="#f87171" />
           <span>Apagar la PC desde aquí</span>
         </button>
       </div>
@@ -1028,7 +1067,22 @@ export function App() {
               textAlign: 'center',
             }}
           >
-            <div style={{ fontSize: '2.5rem', color: '#ef4444' }}>⏻</div>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <div
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: '50%',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <IconPower size={32} color="#ef4444" />
+              </div>
+            </div>
             <div>
               <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#fff' }}>¿Apagar la computadora?</div>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.4 }}>

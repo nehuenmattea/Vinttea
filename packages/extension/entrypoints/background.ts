@@ -177,10 +177,12 @@ export default defineBackground(() => {
         const targetFs = !isFs;
         const targetState: chrome.windows.WindowState = targetFs ? 'fullscreen' : (lastSavedWindowState || 'maximized');
 
-        await chrome.windows.update(tab.windowId, {
-          state: targetState,
-          focused: true,
-        });
+        // Focus the window and activate the media tab first
+        await chrome.windows.update(tab.windowId, { focused: true });
+        await chrome.tabs.update(tab.id, { active: true });
+
+        // Apply OS fullscreen state (F11)
+        await chrome.windows.update(tab.windowId, { state: targetState });
 
         // Notify tab to apply/remove virtual fullscreen styles with explicit flag (1 = enter, 0 = exit)
         chrome.tabs.sendMessage(tab.id, {

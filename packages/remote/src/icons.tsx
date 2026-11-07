@@ -16,38 +16,91 @@ export function IconPause({ size = 28, color = 'currentColor' }: { size?: number
   );
 }
 
-export function IconRewind10({ size = 24, color = 'currentColor' }: { size?: number; color?: string }) {
+export function IconRewind10({ size = 26, color = 'currentColor' }: { size?: number; color?: string }) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
       fill="none"
-      stroke={color}
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
     >
-      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-      <path d="M3 3v5h5" />
-      <text
-        x="12"
-        y="12"
-        fontSize="7"
-        fontWeight="800"
-        textAnchor="middle"
-        dominantBaseline="central"
-        fill={color}
-        stroke="none"
-        style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
-      >
-        10
-      </text>
+      {/* Balanced counter-clockwise arc */}
+      <path
+        d="M 12 3.5 A 8.5 8.5 0 1 0 20.5 12 A 8.5 8.5 0 0 0 16 4.6"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        fill="none"
+      />
+      {/* Arrow tip at top */}
+      <polygon points="12.5,0.8 12.5,6.2 7.5,3.5" fill={color} />
+      {/* Pure vector digit 1 */}
+      <path
+        d="M 8.8 11.2 L 10.4 9.8 L 10.4 15.2 M 8.5 15.2 L 12 15.2"
+        stroke={color}
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      {/* Pure vector digit 0 */}
+      <rect
+        x="13"
+        y="9.8"
+        width="4.2"
+        height="5.4"
+        rx="2.1"
+        stroke={color}
+        strokeWidth="1.7"
+        fill="none"
+      />
     </svg>
   );
 }
 
-export function IconForward10({ size = 24, color = 'currentColor' }: { size?: number; color?: string }) {
+export function IconForward10({ size = 26, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+    >
+      {/* Balanced clockwise arc */}
+      <path
+        d="M 12 3.5 A 8.5 8.5 0 1 1 3.5 12 A 8.5 8.5 0 0 1 8 4.6"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        fill="none"
+      />
+      {/* Arrow tip at top */}
+      <polygon points="11.5,0.8 11.5,6.2 16.5,3.5" fill={color} />
+      {/* Pure vector digit 1 */}
+      <path
+        d="M 8.8 11.2 L 10.4 9.8 L 10.4 15.2 M 8.5 15.2 L 12 15.2"
+        stroke={color}
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      {/* Pure vector digit 0 */}
+      <rect
+        x="13"
+        y="9.8"
+        width="4.2"
+        height="5.4"
+        rx="2.1"
+        stroke={color}
+        strokeWidth="1.7"
+        fill="none"
+      />
+    </svg>
+  );
+}
+
+export function IconPower({ size = 20, color = 'currentColor' }: { size?: number; color?: string }) {
   return (
     <svg
       width={size}
@@ -55,25 +108,12 @@ export function IconForward10({ size = 24, color = 'currentColor' }: { size?: nu
       viewBox="0 0 24 24"
       fill="none"
       stroke={color}
-      strokeWidth="2"
+      strokeWidth="2.2"
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.74 2.74L21 8" />
-      <path d="M21 3v5h-5" />
-      <text
-        x="12"
-        y="12"
-        fontSize="7"
-        fontWeight="800"
-        textAnchor="middle"
-        dominantBaseline="central"
-        fill={color}
-        stroke="none"
-        style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
-      >
-        10
-      </text>
+      <path d="M12 2v10" />
+      <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
     </svg>
   );
 }
