@@ -6,6 +6,8 @@
   "description": "Control remoto de streaming desde el celular para PC",
   "scripts": {
     "build": "pnpm -r run build",
+    "build:launcher": "powershell -ExecutionPolicy Bypass -File scripts/build-launcher.ps1",
+    "package:release": "powershell -ExecutionPolicy Bypass -File scripts/package-release.ps1",
     "dev:server": "pnpm --filter @vinttea/server dev",
     "dev:remote": "pnpm --filter @vinttea/remote dev",
     "dev:extension": "pnpm --filter @vinttea/extension dev",

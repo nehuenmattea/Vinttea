@@ -108,21 +108,21 @@ Este comando compilará `@vinttea/shared`, la extensión en `packages/extension/
    ```
 5. La extensión quedará lista y se conectará automáticamente al servidor local en segundo plano.
 
-### 4. Iniciar el Servidor (¡Sin comandos!)
+### 4. Iniciar Vinttea (¡Interfaz de Escritorio y sin comandos!)
 
-Para usuarios comunes y corrientes, simplemente haz **doble clic en:**
+Para usuarios comunes y corrientes, simplemente haz **doble clic en el ejecutable:**
 ```
-iniciar.bat
+Vinttea.exe
 ```
-*(O si prefieres la terminal, ejecuta `pnpm dev`)*
+*(O ejecuta `Vinttea.bat` si prefieres la consola, o `pnpm dev` para desarrollo)*
 
-El iniciador:
-- Arrancará el servidor automáticamente.
-- Abrirá tu navegador en la página de prueba.
-- Te mostrará en la ventana:
-  - La dirección local de la PC: `http://localhost:9876`
-  - La dirección de red para tu celular: `http://192.168.x.x:9876`
-  - **Un código QR en la consola:** escanéalo con la cámara de tu celular (conectado al mismo WiFi).
+El panel de escritorio **Vinttea.exe**:
+- **Diagnostica e instala requisitos:** Si no tienes Node.js o pnpm, ofrece instalarlos con 1 clic de forma automática.
+- **Crea el acceso directo:** Botón para crear el acceso directo en el Escritorio con el icono oficial de la app.
+- **Controla el servidor:** Inicia o detiene el servidor con un clic, manteniéndolo en segundo plano sin ventanas molestas.
+- **Minimiza a la bandeja del sistema:** Queda accesible junto al reloj de Windows con menú contextual.
+- **Código QR interactivo:** Muestra el código QR y la IP en pantalla para escanear con la cámara del celular.
+- **Actualizaciones desde GitHub:** Detecta nuevas releases publicadas en GitHub y permite descargarlas y aplicarlas automáticamente reemplazando los archivos necesarios.
 
 ---
 
@@ -163,10 +163,10 @@ pnpm test
 
 - [x] **Fase 0 (Preparación):** Monorepo con `pnpm`, TypeScript, esquemas de mensajes en `shared`.
 - [x] **Fase 1 (PoC Funcional):** Servidor Fastify + WS, extensión WXT MV3 con reconexión, adaptadores (Genérico y YouTube), PWA Preact y página de prueba.
-- [ ] **Fase 2 (Adaptadores por Plataforma):** Adaptadores específicos para Crunchyroll, Prime Video y Netflix (inyección en contexto de página para evitar error M7375).
-- [ ] **Fase 3 (Emparejamiento y Seguridad):** Tokens efímeros de sesión mediante QR y HTTPS local con mkcert.
-- [ ] **Fase 4 (PWA Avanzada):** Gestos de deslizamiento táctil (*swipe to seek*), descubrimiento mDNS (`vinttea.local`).
-- [ ] **Fase 5 (Distribución):** Aplicación de bandeja de sistema con Tauri / instalador ejecutable para Windows.
+- [x] **Fase 2 (Adaptadores por Plataforma):** Soporte para Crunchyroll (sagas, omitir intro/resumen sin titileo, pantalla completa F11), Netflix y YouTube.
+- [x] **Fase 3 (Control de Hardware y Apagado):** Apagar o suspender la PC directamente desde el control remoto del celular.
+- [x] **Fase 4 (Aplicación de Escritorio e Instalador):** Panel de control nativo `Vinttea.exe` con diagnóstico de dependencias, acceso directo en el escritorio, bandeja del sistema y actualizador desde GitHub Releases.
+- [ ] **Fase 5 (PWA Avanzada):** Gestos táctiles avanzados, control con botones físicos de volumen del celular.
 
 ---
 

@@ -222,12 +222,16 @@ export async function startServer(port: number = DEFAULT_PORT) {
 
   // Status API endpoint
   server.get('/api/status', async () => {
+    const localIp = getLocalNetworkIp();
     return {
       status: 'ok',
       extensionConnected: extensionClients.size > 0,
       activeRemotes: remoteClients.size,
       lastKnownState,
       shutdownSecondsRemaining: shutdownSecondsRemaining > 0 ? shutdownSecondsRemaining : undefined,
+      localIp,
+      port,
+      networkUrl: `http://${localIp}:${port}`,
     };
   });
 
