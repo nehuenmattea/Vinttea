@@ -20,6 +20,17 @@ if (-not (Test-Path $iconPath)) {
 $sourceFile = Join-Path $root "packages\launcher\Program.cs"
 $outFile = Join-Path $root "Vinttea.exe"
 
+# If Vinttea.exe exists, try deleting or moving to .old to avoid file locks
+if (Test-Path $outFile) {
+    try {
+        Remove-Item $outFile -Force -ErrorAction Stop
+    } catch {
+        $oldFile = Join-Path $root "Vinttea.exe.old"
+        try { if (Test-Path $oldFile) { Remove-Item $oldFile -Force } } catch { }
+        try { Move-Item $outFile $oldFile -Force } catch { }
+    }
+}
+
 $refs = @(
     "System.dll",
     "System.Windows.Forms.dll",

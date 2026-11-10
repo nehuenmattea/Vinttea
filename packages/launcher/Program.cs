@@ -47,7 +47,7 @@ namespace VintteaLauncher
     public class MainForm : Form
     {
         // App metadata
-        public const string CurrentVersion = "0.1.0";
+        public const string CurrentVersion = "2.0.0";
         public const string GitHubRepo = "nehuenmattea/Vinttea";
 
         // Colors
@@ -105,7 +105,7 @@ namespace VintteaLauncher
         private void InitializeComponent()
         {
             this.Text = "Vinttea - Control Remoto para PC";
-            this.Size = new Size(640, 730);
+            this.Size = new Size(640, 765);
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
             this.StartPosition = FormStartPosition.CenterScreen;
@@ -232,7 +232,7 @@ namespace VintteaLauncher
             serverCard.Controls.Add(btnExtensionFolder);
 
             // 4. Updates & GitHub Card
-            Panel updateCard = CreateCardPanel(16, 480, 590, 84);
+            Panel updateCard = CreateCardPanel(16, 480, 590, 105);
             mainContainer.Controls.Add(updateCard);
 
             Label lblUpdateTitle = new Label();
@@ -244,21 +244,26 @@ namespace VintteaLauncher
             updateCard.Controls.Add(lblUpdateTitle);
 
             lblUpdateStatus = new Label();
-            lblUpdateStatus.Text = string.Format("Versión actual: v{0} | Repositorio: {1}", CurrentVersion, GitHubRepo);
+            lblUpdateStatus.Text = string.Format("Versión instalada: v{0} • GitHub: {1}", CurrentVersion, GitHubRepo);
             lblUpdateStatus.Location = new Point(16, 32);
             lblUpdateStatus.AutoSize = true;
             lblUpdateStatus.ForeColor = TextMuted;
             updateCard.Controls.Add(lblUpdateStatus);
 
-            btnCheckUpdates = CreateButton("🔄 Buscar Actualizaciones", 340, 24, 234, 44, Color.FromArgb(32, 38, 58), AccentIndigo);
+            btnCheckUpdates = CreateButton("🔄 Buscar Actualizaciones", 16, 56, 272, 38, Color.FromArgb(32, 38, 58), AccentIndigo);
             btnCheckUpdates.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
             btnCheckUpdates.Click += (s, e) => CheckForUpdates(true);
             updateCard.Controls.Add(btnCheckUpdates);
 
+            Button btnOpenReleases = CreateButton("📦 Ver Releases en GitHub", 300, 56, 274, 38, Color.FromArgb(32, 38, 58), TextPrimary);
+            btnOpenReleases.Font = new Font("Segoe UI", 9f, FontStyle.Regular);
+            btnOpenReleases.Click += (s, e) => Process.Start("https://github.com/" + GitHubRepo + "/releases");
+            updateCard.Controls.Add(btnOpenReleases);
+
             // 5. Real-Time Activity Log Box
             txtLog = new TextBox();
-            txtLog.Location = new Point(16, 572);
-            txtLog.Size = new Size(590, 92);
+            txtLog.Location = new Point(16, 595);
+            txtLog.Size = new Size(590, 108);
             txtLog.Multiline = true;
             txtLog.ReadOnly = true;
             txtLog.ScrollBars = ScrollBars.Vertical;
