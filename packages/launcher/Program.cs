@@ -94,12 +94,27 @@ namespace VintteaLauncher
         {
             appDir = AppDomain.CurrentDomain.BaseDirectory;
             InitializeComponent();
+            RemoveObsoleteFiles();
             CheckRequirements();
 
             statusTimer = new System.Windows.Forms.Timer();
             statusTimer.Interval = 2500;
             statusTimer.Tick += (s, e) => PollServerStatus();
             statusTimer.Start();
+        }
+
+        private void RemoveObsoleteFiles()
+        {
+            string[] obsoleteFiles = { "Vinttea.bat", "Vinttea.exe.old" };
+            foreach (string fileName in obsoleteFiles)
+            {
+                try
+                {
+                    string path = Path.Combine(appDir, fileName);
+                    if (File.Exists(path)) File.Delete(path);
+                }
+                catch { }
+            }
         }
 
         private void InitializeComponent()
@@ -371,7 +386,7 @@ namespace VintteaLauncher
             string pnpmPath = FindExecutable("pnpm.cmd") ?? FindExecutable("pnpm");
             isPnpmInstalled = !string.IsNullOrEmpty(pnpmPath);
 
-            string serverDist = Path.Combine(appDir, @"packages\server\dist\index.js");
+            string serverDist = Path.Combine(appDir, @"packages\server\dist\index.cjs");
             isProjectBuilt = File.Exists(serverDist);
 
             lblNodeStatus.Text = isNodeInstalled ? "✔ Node.js: Instalado y listo" : "❌ Node.js: No detectado en este equipo";
@@ -532,7 +547,7 @@ namespace VintteaLauncher
             if (isServerRunning) return;
 
             string nodePath = FindExecutable("node.exe") ?? "node";
-            string serverDist = Path.Combine(appDir, @"packages\server\dist\index.js");
+            string serverDist = Path.Combine(appDir, @"packages\server\dist\index.cjs");
 
             if (!File.Exists(serverDist))
             {
@@ -957,29 +972,6 @@ namespace VintteaLauncher
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            if (e.CloseReason == CloseReason.UserClosing)
-            {
-                DialogResult res = MessageBox.Show(
-                    "¿Deseas cerrar Vinttea por completo o minimizarlo a la bandeja del sistema?",
-                    "Vinttea",
-                    MessageBoxButtons.YesNoCancel,
-                    MessageBoxIcon.Question
-                );
-
-                if (res == DialogResult.Cancel)
-                {
-                    e.Cancel = true;
-                    return;
-                }
-                else if (res == DialogResult.No)
-                {
-                    // Minimize to tray
-                    e.Cancel = true;
-                    this.WindowState = FormWindowState.Minimized;
-                    return;
-                }
-            }
-
             ExitApplication();
             base.OnFormClosing(e);
         }

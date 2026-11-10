@@ -20,14 +20,13 @@ if (-not (Test-Path $iconPath)) {
 $sourceFile = Join-Path $root "packages\launcher\Program.cs"
 $outFile = Join-Path $root "Vinttea.exe"
 
-# If Vinttea.exe exists, try deleting or moving to .old to avoid file locks
+# The launcher must be closed before rebuilding so no backup executable is left behind.
 if (Test-Path $outFile) {
     try {
         Remove-Item $outFile -Force -ErrorAction Stop
     } catch {
-        $oldFile = Join-Path $root "Vinttea.exe.old"
-        try { if (Test-Path $oldFile) { Remove-Item $oldFile -Force } } catch { }
-        try { Move-Item $outFile $oldFile -Force } catch { }
+        Write-Error "No se pudo reemplazar Vinttea.exe. Cierra Vinttea y vuelve a compilar."
+        exit 1
     }
 }
 

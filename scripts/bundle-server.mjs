@@ -23,7 +23,8 @@ function findEsbuild(dir) {
 
 const esbuildPath = findEsbuild(root);
 const serverSrc = path.join(root, 'packages', 'server', 'src', 'index.ts');
-const serverDist = path.join(root, 'packages', 'server', 'dist', 'index.js');
+const serverDist = path.join(root, 'packages', 'server', 'dist', 'index.cjs');
+const legacyEsmDist = path.join(root, 'packages', 'server', 'dist', 'index.js');
 
 console.log(`Bundling server with ${path.basename(esbuildPath)}...`);
 
@@ -32,13 +33,14 @@ const res = spawnSync(esbuildPath, [
   '--bundle',
   '--platform=node',
   '--target=node20',
-  '--format=esm',
+  '--format=cjs',
   `--outfile=${serverDist}`,
 ], {
   stdio: 'inherit',
 });
 
 if (res.status === 0) {
+  if (fs.existsSync(legacyEsmDist)) fs.rmSync(legacyEsmDist);
   const bytes = fs.statSync(serverDist).size;
   console.log(`✔ Server successfully bundled into standalone file: ${serverDist} (${(bytes / 1024 / 1024).toFixed(2)} MB)`);
 } else {

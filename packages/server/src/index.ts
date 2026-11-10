@@ -360,7 +360,6 @@ export async function startServer(port: number = DEFAULT_PORT) {
 
   // Candidate paths for built remote PWA
   const candidatePaths = [
-    path.resolve(import.meta.dirname, '../../remote/dist'),
     path.resolve(process.cwd(), 'packages/remote/dist'),
     path.resolve(process.cwd(), '../remote/dist'),
   ];

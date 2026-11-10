@@ -114,7 +114,7 @@ Para usuarios comunes y corrientes, simplemente haz **doble clic en el ejecutabl
 ```
 Vinttea.exe
 ```
-*(O ejecuta `Vinttea.bat` si prefieres la consola, o `pnpm dev` para desarrollo)*
+*(Para desarrollo, ejecuta `pnpm dev` desde la carpeta del proyecto.)*
 
 El panel de escritorio **Vinttea.exe**:
 - **Diagnostica e instala requisitos:** Si no tienes Node.js o pnpm, ofrece instalarlos con 1 clic de forma automática.

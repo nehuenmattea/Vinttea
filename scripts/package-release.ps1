@@ -44,7 +44,6 @@ New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
 $rootFiles = @(
     "Vinttea.exe",
     "Vinttea.ico",
-    "Vinttea.bat",
     "package.json",
     "pnpm-workspace.yaml",
     "pnpm-lock.yaml",
