@@ -47,7 +47,7 @@ namespace VintteaLauncher
     public class MainForm : Form
     {
         // App metadata
-        public const string CurrentVersion = "2.0.0";
+        public const string CurrentVersion = "2.0.1";
         public const string GitHubRepo = "nehuenmattea/Vinttea";
 
         // Colors

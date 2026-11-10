@@ -45,7 +45,6 @@ $rootFiles = @(
     "Vinttea.exe",
     "Vinttea.ico",
     "Vinttea.bat",
-    "iniciar.bat",
     "package.json",
     "pnpm-workspace.yaml",
     "pnpm-lock.yaml",
