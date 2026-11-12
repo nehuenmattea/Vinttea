@@ -855,7 +855,6 @@ namespace VintteaLauncher
                         Match nameMatch = Regex.Match(json, "\"name\":\"([^\"]+)\"");
                         Match bodyMatch = Regex.Match(json, "\"body\":\"([^\"]+)\"");
                         Match zipMatch = Regex.Match(json, "\"browser_download_url\":\"([^\"]+\\.zip)\"");
-                        Match zipballMatch = Regex.Match(json, "\"zipball_url\":\"([^\"]+)\"");
 
                         if (!tagMatch.Success)
                         {
@@ -871,7 +870,7 @@ namespace VintteaLauncher
                         string remoteTag = tagMatch.Groups[1].Value.TrimStart('v', 'V');
                         string releaseName = nameMatch.Success ? nameMatch.Groups[1].Value : remoteTag;
                         string releaseBody = bodyMatch.Success ? Regex.Unescape(bodyMatch.Groups[1].Value) : "Mejoras y correcciones.";
-                        string downloadUrl = zipMatch.Success ? zipMatch.Groups[1].Value : (zipballMatch.Success ? zipballMatch.Groups[1].Value : null);
+                        string downloadUrl = zipMatch.Success ? zipMatch.Groups[1].Value : null;
 
                         Version currentVer = new Version(displayedVersion);
                         Version remoteVer = new Version(remoteTag);
@@ -1055,29 +1054,14 @@ namespace VintteaLauncher
                         sourceDir = subDirs[0];
                     }
 
+                    UpdatePackageVersions(sourceDir, newVersion);
+
                     // Stop server before overwriting
                     StopServer();
 
                     ReportUpdateProgress("Instalando archivos...", -1);
                     Log("Reemplazando y agregando archivos actualizados...");
                     CopyDirectory(sourceDir, appDir);
-
-                    // Recompile packages
-                    ReportUpdateProgress("Compilando los paquetes...", -1);
-                    Log("Recompilando paquetes de Vinttea...");
-                    string cmd = isPnpmInstalled ? "pnpm" : "npx pnpm";
-                    Process bp = Process.Start(new ProcessStartInfo
-                    {
-                        FileName = "cmd.exe",
-                        Arguments = string.Format("/c cd /d \"{0}\" && {1} -r run build", appDir, cmd),
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    });
-                    bp.WaitForExit();
-                    if (bp.ExitCode != 0)
-                    {
-                        throw new InvalidOperationException("La compilación terminó con el código " + bp.ExitCode + ".");
-                    }
 
                     Log("¡Actualización completada exitosamente a v" + newVersion + "!");
                     ReportUpdateProgress("Actualización completada.", 100);
@@ -1142,6 +1126,43 @@ namespace VintteaLauncher
                         : "Descargando la actualización...";
                     ReportUpdateProgress(status, percent);
                 }
+            }
+        }
+
+        private void UpdatePackageVersions(string packageRoot, string version)
+        {
+            string[] manifestPaths = new string[]
+            {
+                Path.Combine(packageRoot, "package.json"),
+                Path.Combine(packageRoot, "packages", "server", "package.json"),
+                Path.Combine(packageRoot, "packages", "remote", "package.json"),
+                Path.Combine(packageRoot, "packages", "shared", "package.json"),
+                Path.Combine(packageRoot, "packages", "extension", "package.json")
+            };
+            Regex versionPattern = new Regex("(?m)^(\\s*\\\"version\\\"\\s*:\\s*\\\")[^\\\"]+(\\\"\\s*,?)");
+
+            foreach (string manifestPath in manifestPaths)
+            {
+                if (!File.Exists(manifestPath))
+                {
+                    throw new FileNotFoundException("Falta un manifiesto de versión en el paquete descargado.", manifestPath);
+                }
+
+                string manifest = File.ReadAllText(manifestPath);
+                if (!versionPattern.IsMatch(manifest))
+                {
+                    throw new InvalidDataException("No se encontró la versión en " + Path.GetFileName(manifestPath) + ".");
+                }
+
+                string updatedManifest = versionPattern.Replace(
+                    manifest,
+                    delegate(Match match)
+                    {
+                        return match.Groups[1].Value + version + match.Groups[2].Value;
+                    },
+                    1
+                );
+                File.WriteAllText(manifestPath, updatedManifest, new UTF8Encoding(false));
             }
         }
 

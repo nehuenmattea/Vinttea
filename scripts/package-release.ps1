@@ -8,8 +8,17 @@ Set-Location $root
 
 # Read version from package.json if not specified
 if ([string]::IsNullOrEmpty($Version)) {
-    $pkgJson = Get-Content (Join-Path $root "package.json") -Raw | ConvertFrom-Json
-    $Version = $pkgJson.version
+    if ($env:GITHUB_REF_TYPE -eq "tag" -and $env:GITHUB_REF_NAME -match "^v?(\d+\.\d+\.\d+)$") {
+        $Version = $Matches[1]
+    } else {
+        $pkgJson = Get-Content (Join-Path $root "package.json") -Raw | ConvertFrom-Json
+        $Version = $pkgJson.version
+    }
+}
+
+$Version = $Version -replace "^[vV]", ""
+if ($Version -notmatch "^\d+\.\d+\.\d+$") {
+    throw "La versión '$Version' no tiene formato SemVer X.Y.Z."
 }
 
 Write-Host "========================================="
@@ -81,6 +90,52 @@ foreach ($item in $pkgFolders) {
         }
         Copy-Item -Path $srcPath -Destination $destPath -Recurse -Force
     }
+}
+
+# Use the Git tag as the release version in every manifest inside the ZIP.
+# Keep build scripts harmless in the packaged app so older launchers that still
+# invoke `pnpm -r run build` can complete their update from this prebuilt bundle.
+$manifestPaths = @(
+    (Join-Path $stageDir "package.json"),
+    (Join-Path $stageDir "packages\server\package.json"),
+    (Join-Path $stageDir "packages\remote\package.json"),
+    (Join-Path $stageDir "packages\shared\package.json"),
+    (Join-Path $stageDir "packages\extension\package.json")
+)
+$versionRegex = [regex]::new('(?m)^(\s*"version"\s*:\s*")[^"]+("\s*,?)')
+$buildRegex = [regex]::new('(?m)^(\s*"build"\s*:\s*")[^"]+("\s*,?)')
+foreach ($manifestPath in $manifestPaths) {
+    if (-not (Test-Path $manifestPath)) {
+        throw "No se encontró el manifiesto esperado: $manifestPath"
+    }
+
+    $manifestText = [System.IO.File]::ReadAllText($manifestPath)
+    if (-not $versionRegex.IsMatch($manifestText)) {
+        throw "No se encontró el campo version en: $manifestPath"
+    }
+    $updatedManifest = $versionRegex.Replace(
+        $manifestText,
+        [System.Text.RegularExpressions.MatchEvaluator]{
+            param($match)
+            $match.Groups[1].Value + $Version + $match.Groups[2].Value
+        },
+        1
+    )
+    if ($buildRegex.IsMatch($updatedManifest)) {
+        $updatedManifest = $buildRegex.Replace(
+            $updatedManifest,
+            [System.Text.RegularExpressions.MatchEvaluator]{
+                param($match)
+                $match.Groups[1].Value + "echo Vinttea packages are prebuilt" + $match.Groups[2].Value
+            },
+            1
+        )
+    }
+    [System.IO.File]::WriteAllText(
+        $manifestPath,
+        $updatedManifest,
+        [System.Text.UTF8Encoding]::new($false)
+    )
 }
 
 # 4. Crear archivo ZIP
