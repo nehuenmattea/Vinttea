@@ -1,6 +1,8 @@
 # Script para empaquetar una Release de Vinttea lista para GitHub
 param(
-    [string]$Version = ""
+    [string]$Version = "",
+    [string]$OutputDirectory = "",
+    [switch]$SkipBuild
 )
 
 $root = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
@@ -26,12 +28,19 @@ Write-Host "  Empaquetando Vinttea Release v$Version"
 Write-Host "========================================="
 
 # 1. Compilar paquetes de TypeScript / Vite / WXT
-Write-Host "[1/4] Compilando paquetes de Vinttea..."
-$hasPnpm = (Get-Command pnpm -ErrorAction SilentlyContinue) -ne $null
-if ($hasPnpm) {
-    pnpm -r run build
+if ($SkipBuild) {
+    Write-Host "[1/4] Usando paquetes ya compilados por el workflow..."
 } else {
-    npx pnpm -r run build
+    Write-Host "[1/4] Compilando paquetes de Vinttea..."
+    $hasPnpm = (Get-Command pnpm -ErrorAction SilentlyContinue) -ne $null
+    if ($hasPnpm) {
+        pnpm -r run build
+    } else {
+        npx pnpm -r run build
+    }
+    if ($LASTEXITCODE -ne 0) {
+        throw "La compilación de paquetes terminó con el código $LASTEXITCODE."
+    }
 }
 
 # 2. Generar Icono y compilar Vinttea.exe
@@ -41,11 +50,18 @@ Write-Host "[2/4] Generando icono y compilando Vinttea.exe..."
 
 # 3. Preparar carpeta temporal para release
 Write-Host "[3/4] Preparando estructura de archivos..."
-$distDir = Join-Path $root "dist-release"
+$distDir = if ([string]::IsNullOrEmpty($OutputDirectory)) {
+    Join-Path $root "dist-release"
+} else {
+    [System.IO.Path]::GetFullPath($OutputDirectory)
+}
 $stageDir = Join-Path $distDir "Vinttea"
 
 if (Test-Path $distDir) {
-    Remove-Item $distDir -Recurse -Force
+    if (-not [string]::IsNullOrEmpty($OutputDirectory)) {
+        throw "La carpeta de salida ya existe; elegí otra para preservar sus archivos: $distDir"
+    }
+    Remove-Item -LiteralPath $distDir -Recurse -Force
 }
 New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
 
@@ -92,6 +108,27 @@ foreach ($item in $pkgFolders) {
     }
 }
 
+# Legacy launchers run `pnpm -r run build` after copying this prebuilt bundle.
+# Recent pnpm versions otherwise try to install the omitted development
+# dependencies before running those harmless compatibility scripts.
+$workspaceManifest = Join-Path $stageDir "pnpm-workspace.yaml"
+if (-not (Test-Path $workspaceManifest)) {
+    throw "No se encontró pnpm-workspace.yaml en el paquete de release."
+}
+$workspaceText = [System.IO.File]::ReadAllText($workspaceManifest)
+$verifyDepsSetting = [regex]::new('(?m)^verifyDepsBeforeRun\s*:')
+if ($verifyDepsSetting.IsMatch($workspaceText)) {
+    $workspaceText = $verifyDepsSetting.Replace($workspaceText, "verifyDepsBeforeRun: false", 1)
+} else {
+    $workspaceText = $workspaceText.TrimEnd() + "`r`n`r`nverifyDepsBeforeRun: false`r`n"
+}
+[System.IO.File]::WriteAllText(
+    $workspaceManifest,
+    $workspaceText,
+    [System.Text.UTF8Encoding]::new($false)
+)
+Write-Host "Configurado pnpm para omitir instalaciones durante la actualización heredada."
+
 # Use the Git tag as the release version in every manifest inside the ZIP.
 # Keep build scripts harmless in the packaged app so older launchers that still
 # invoke `pnpm -r run build` can complete their update from this prebuilt bundle.
@@ -104,6 +141,7 @@ $manifestPaths = @(
 )
 $versionRegex = [regex]::new('(?m)^(\s*"version"\s*:\s*")[^"]+("\s*,?)')
 $buildRegex = [regex]::new('(?m)^(\s*"build"\s*:\s*")[^"]+("\s*,?)')
+$legacyBuildCommand = "echo Vinttea packages are prebuilt"
 foreach ($manifestPath in $manifestPaths) {
     if (-not (Test-Path $manifestPath)) {
         throw "No se encontró el manifiesto esperado: $manifestPath"
@@ -121,12 +159,15 @@ foreach ($manifestPath in $manifestPaths) {
         },
         1
     )
-    if ($buildRegex.IsMatch($updatedManifest)) {
+    if ($manifestPath -ne (Join-Path $stageDir "package.json")) {
+        if (-not $buildRegex.IsMatch($updatedManifest)) {
+            throw "No se encontró el script build requerido para compatibilidad en: $manifestPath"
+        }
         $updatedManifest = $buildRegex.Replace(
             $updatedManifest,
             [System.Text.RegularExpressions.MatchEvaluator]{
                 param($match)
-                $match.Groups[1].Value + "echo Vinttea packages are prebuilt" + $match.Groups[2].Value
+                $match.Groups[1].Value + $legacyBuildCommand + $match.Groups[2].Value
             },
             1
         )
@@ -136,6 +177,16 @@ foreach ($manifestPath in $manifestPaths) {
         $updatedManifest,
         [System.Text.UTF8Encoding]::new($false)
     )
+
+    $validatedManifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    if ($validatedManifest.version -ne $Version) {
+        throw "La versión empaquetada no coincide en: $manifestPath"
+    }
+    if ($manifestPath -ne (Join-Path $stageDir "package.json") -and
+        $validatedManifest.scripts.build -ne $legacyBuildCommand) {
+        throw "El script build no quedó preparado para actualizadores viejos en: $manifestPath"
+    }
+    Write-Host "Manifiesto listo: $($validatedManifest.name) v$($validatedManifest.version); build=$($validatedManifest.scripts.build)"
 }
 
 # 4. Crear archivo ZIP
@@ -144,6 +195,48 @@ $zipPath = Join-Path $distDir $zipName
 Write-Host "[4/4] Comprimiendo en $zipName..."
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 [System.IO.Compression.ZipFile]::CreateFromDirectory($stageDir, $zipPath)
+
+# Validate the actual ZIP so the compatibility fix cannot silently be omitted
+# from a published release.
+$archive = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+try {
+    foreach ($relativePath in @(
+        "pnpm-workspace.yaml",
+        "package.json",
+        "packages/server/package.json",
+        "packages/remote/package.json",
+        "packages/shared/package.json",
+        "packages/extension/package.json"
+    )) {
+        $entry = $archive.GetEntry($relativePath)
+        if ($null -eq $entry) {
+            throw "Falta $relativePath dentro del ZIP de release."
+        }
+        $reader = [System.IO.StreamReader]::new($entry.Open())
+        try { $entryContents = $reader.ReadToEnd() }
+        finally { $reader.Dispose() }
+
+        if ($relativePath -eq "pnpm-workspace.yaml") {
+            if (-not [regex]::IsMatch($entryContents, '(?m)^verifyDepsBeforeRun:\s*false\s*$')) {
+                throw "El ZIP no desactiva la instalación automática de dependencias para el actualizador viejo."
+            }
+            continue
+        }
+        $packagedManifest = $entryContents | ConvertFrom-Json
+
+        if ($packagedManifest.version -ne $Version) {
+            throw "El ZIP contiene una versión inesperada en $relativePath."
+        }
+        if ($relativePath -ne "package.json" -and
+            $packagedManifest.scripts.build -ne $legacyBuildCommand) {
+            throw "El ZIP no contiene el build compatible en $relativePath."
+        }
+    }
+}
+finally {
+    $archive.Dispose()
+}
+Write-Host "Validación del ZIP completada: versiones y scripts compatibles con actualizadores anteriores."
 
 $zipBytes = (Get-Item $zipPath).Length
 $zipMb = [Math]::Round(($zipBytes / (1024 * 1024)), 2)

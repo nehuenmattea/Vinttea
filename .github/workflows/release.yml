@@ -33,7 +33,7 @@ jobs:
         run: pnpm -r run build
 
       - name: Package Vinttea Windows Release
-        run: powershell -ExecutionPolicy Bypass -File scripts/package-release.ps1
+        run: powershell -ExecutionPolicy Bypass -File scripts/package-release.ps1 -SkipBuild
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
