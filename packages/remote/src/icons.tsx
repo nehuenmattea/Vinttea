@@ -163,15 +163,6 @@ export function IconFullscreen({ size = 20, color = 'currentColor' }: { size?: n
   );
 }
 
-export function IconTheater({ size = 20, color = 'currentColor' }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2.5" y="4" width="19" height="13" rx="2" />
-      <path d="M7.5 20h9M12 17v3M3 7h2M3 10h2M19 7h2M19 10h2" />
-    </svg>
-  );
-}
-
 export function IconFastForward({ size = 18, color = 'currentColor' }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

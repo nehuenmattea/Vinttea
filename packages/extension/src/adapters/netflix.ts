@@ -3,8 +3,8 @@ import {
   simulateKey,
   findInteractiveButton,
   clickElementSafely,
-  toggleCinemaMode as applyCinemaMode,
-  isCinemaModeActive,
+  toggleReliableFullscreen,
+  isFullscreenActive,
 } from './utils';
 import { GenericAdapter } from './generic';
 
@@ -72,17 +72,21 @@ export class NetflixAdapter extends GenericAdapter implements SiteAdapter {
     this.seek(diff);
   }
 
-  override toggleCinemaMode(forceState?: number): void {
+  override toggleFullscreen(forceState?: number): void {
     const video = document.querySelector<HTMLVideoElement>('video');
     const container =
       document.querySelector<HTMLElement>('.watch-video--player-view') ||
       video?.parentElement;
 
-    applyCinemaMode(video, container, forceState);
-  }
-
-  override toggleFullscreen(forceState?: number): void {
-    this.toggleCinemaMode(forceState);
+    toggleReliableFullscreen(
+      video,
+      container,
+      [
+        'button[data-uia="control-fullscreen-enter"]',
+        'button[data-uia="control-fullscreen-exit"]',
+      ],
+      forceState
+    );
   }
 
   override toggleMute(): void {
@@ -175,7 +179,7 @@ export class NetflixAdapter extends GenericAdapter implements SiteAdapter {
       title: episodeTitle
         ? `${seriesTitle ? seriesTitle + ': ' : ''}${seasonTitle ? seasonTitle + ' - ' : ''}${episodeTitle}`
         : (seriesTitle || baseState.title),
-      cinemaMode: isCinemaModeActive(),
+      fullscreen: isFullscreenActive(),
       thumbnail,
       skipButton: {
         visible: skipVisible,

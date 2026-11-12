@@ -9,7 +9,7 @@ import {
   IconSkipForward,
   IconVolume,
   IconVolumeMute,
-  IconTheater,
+  IconFullscreen,
   IconFastForward,
   IconPower,
 } from './icons';
@@ -121,42 +121,27 @@ function getAnimeTheme(title: string = '', series: string = ''): AnimeTheme | nu
   return null;
 }
 
-function DragonBallSphere({ onActivateKi }: { onActivateKi: () => void }) {
+function DragonBallSphere() {
   return (
-    <button
-      type="button"
+    <span
       className="dragon-ball-sphere"
-      aria-label="Activar efecto de Ki"
+      role="img"
+      aria-label="Esfera del Dragón de 4 estrellas"
       title="Esfera del Dragón de 4 estrellas"
-      onClick={() => {
-        onActivateKi();
-        if (navigator.vibrate) {
-          navigator.vibrate([40, 60, 40]);
-        }
-      }}
     >
       <svg className="dragon-ball-stars" viewBox="0 0 48 48" aria-hidden="true">
         <defs>
-          <radialGradient id="dragon-ball-glass" cx="32%" cy="26%" r="78%">
-            <stop offset="0%" stopColor="#fff5b1" />
-            <stop offset="42%" stopColor="#ffb21a" />
-            <stop offset="100%" stopColor="#b45309" />
-          </radialGradient>
-          <path
-            id="dragon-ball-star"
-            d="M0-5.7 1.7-1.8 5.9-1.3 2.8 1.5 3.7 5.7 0 3.5-3.7 5.7-2.8 1.5-5.9-1.3-1.7-1.8Z"
-          />
+          <path id="dragon-ball-star" d="m0-4.8 1.4 3.1 3.4.4-2.5 2.2.7 3.3L0 2.5l-3 1.7.7-3.3-2.5-2.2 3.4-.4Z" />
         </defs>
-        <circle cx="24" cy="24" r="22" fill="url(#dragon-ball-glass)" />
-        <g fill="#c91f27" stroke="#8c1018" strokeWidth=".55" strokeLinejoin="round">
-          <use href="#dragon-ball-star" transform="translate(24 12)" />
-          <use href="#dragon-ball-star" transform="translate(12 24)" />
-          <use href="#dragon-ball-star" transform="translate(36 24)" />
-          <use href="#dragon-ball-star" transform="translate(24 36)" />
+        <g fill="#a51c1c" stroke="#781313" strokeWidth=".7" strokeLinejoin="round">
+          <use href="#dragon-ball-star" transform="translate(24 14)" />
+          <use href="#dragon-ball-star" transform="translate(14 24)" />
+          <use href="#dragon-ball-star" transform="translate(34 24)" />
+          <use href="#dragon-ball-star" transform="translate(24 34)" />
         </g>
       </svg>
       <span className="dragon-ball-gloss" aria-hidden="true" />
-    </button>
+    </span>
   );
 }
 
@@ -173,7 +158,6 @@ export function App() {
     volume: 1,
     muted: false,
     service: 'generic',
-    cinemaMode: false,
     skipButton: { visible: false, text: 'Omitir intro' },
   });
 
@@ -311,7 +295,6 @@ export function App() {
 
   const isSkipVisible = !!state.skipButton?.visible;
   const skipText = state.skipButton?.text || 'Omitir intro';
-  const isCinemaMode = state.cinemaMode ?? state.fullscreen ?? false;
 
   const triggerKiBurst = () => {
     setKiBurst(true);
@@ -383,29 +366,6 @@ export function App() {
         </div>
 
         <div className="remote-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Quick Power Off button right in header */}
-          <button
-            onClick={() => setShowShutdownModal(true)}
-            title="Apagar la PC"
-            style={{
-              background: 'rgba(239, 68, 68, 0.15)',
-              border: '1px solid rgba(239, 68, 68, 0.4)',
-              color: '#f87171',
-              borderRadius: 9999,
-              padding: '5px 10px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-              cursor: 'pointer',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              transition: 'all 0.2s',
-            }}
-          >
-            <IconPower size={13} color="#f87171" />
-            <span>Apagar</span>
-          </button>
-
           <div
             style={{
               display: 'inline-flex',
@@ -587,7 +547,7 @@ export function App() {
                 </div>
               )}
               {/* Dragon Ball Themed 4-Star Sphere Easter Egg */}
-              {animeTheme?.icon === 'dragonball' && <DragonBallSphere onActivateKi={triggerKiBurst} />}
+              {animeTheme?.icon === 'dragonball' && <DragonBallSphere />}
             </div>
 
             {/* Dedicated Season / Saga Badge (ej. Saga de Pilaf en Dragon Ball 1986) */}
@@ -966,18 +926,18 @@ export function App() {
           </button>
 
           <button
-            className="cinema-mode-button"
-            onClick={() => sendCommand('toggleCinemaMode')}
+            className="fullscreen-button"
+            onClick={() => sendCommand('toggleFullscreen')}
             style={{
               ...btnStyle,
-              background: isCinemaMode ? 'rgba(99, 102, 241, 0.25)' : '#1d2232',
-              borderColor: isCinemaMode ? '#818cf8' : 'var(--card-border)',
-              boxShadow: isCinemaMode ? '0 0 16px rgba(99, 102, 241, 0.4)' : 'none',
+              background: state.fullscreen ? 'rgba(99, 102, 241, 0.25)' : '#1d2232',
+              borderColor: state.fullscreen ? '#818cf8' : 'var(--card-border)',
+              boxShadow: state.fullscreen ? '0 0 16px rgba(99, 102, 241, 0.4)' : 'none',
             }}
           >
-            <IconTheater size={22} color={isCinemaMode ? '#818cf8' : '#f3f4f6'} />
-            <span style={{ ...btnLabelStyle, color: isCinemaMode ? '#818cf8' : 'var(--text-muted)' }}>
-              {isCinemaMode ? 'Salir modo cine' : 'Modo cine'}
+            <IconFullscreen size={22} color={state.fullscreen ? '#818cf8' : '#f3f4f6'} />
+            <span style={{ ...btnLabelStyle, color: state.fullscreen ? '#818cf8' : 'var(--text-muted)' }}>
+              {state.fullscreen ? 'Salir pantalla' : 'Pantalla compl.'}
             </span>
           </button>
         </div>

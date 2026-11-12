@@ -108,6 +108,9 @@ export default defineContentScript({
     window.addEventListener('yt-page-data-updated', onNavigate);
     document.addEventListener('yt-navigate-finish', onNavigate);
 
+    document.addEventListener('fullscreenchange', () => setTimeout(sendStateUpdate, 0));
+    document.addEventListener('webkitfullscreenchange', () => setTimeout(sendStateUpdate, 0));
+
     // Listen for remote commands from background service worker
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (message.type === 'vinttea_command') {
@@ -149,11 +152,8 @@ export default defineContentScript({
               adapter.toggleMute();
             }
             break;
-          case 'toggleCinemaMode':
-          case 'toggleFullscreen': // Legacy remote clients now map to cinema mode.
-            if (adapter.toggleCinemaMode) {
-              adapter.toggleCinemaMode(value);
-            } else if (adapter.toggleFullscreen) {
+          case 'toggleFullscreen':
+            if (adapter.toggleFullscreen) {
               adapter.toggleFullscreen(value);
             }
             break;

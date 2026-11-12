@@ -166,79 +166,84 @@ export function isElementVisible(el: HTMLElement): boolean {
   return rect.width > 0 && rect.height > 0;
 }
 
-const CINEMA_MODE_CLASS = 'vinttea-cinema-mode';
-
-function ensureCinemaStyle(): void {
-  if (document.getElementById('vinttea-cinema-style')) return;
-
-  const style = document.createElement('style');
-  style.id = 'vinttea-cinema-style';
-  style.textContent = `
-    .${CINEMA_MODE_CLASS} {
-      position: relative !important;
-      z-index: 2147483000 !important;
-      width: min(100vw, 177.78vh) !important;
-      max-width: 100vw !important;
-      height: min(56.25vw, 82vh) !important;
-      min-height: 0 !important;
-      aspect-ratio: 16 / 9 !important;
-      left: 50% !important;
-      transform: translateX(-50%) !important;
-      margin-top: clamp(16px, 3vh, 36px) !important;
-      margin-bottom: clamp(16px, 3vh, 36px) !important;
-      background: #000 !important;
-      box-shadow: 0 18px 60px rgba(0, 0, 0, .45) !important;
-    }
-
-    .${CINEMA_MODE_CLASS} video {
-      width: 100% !important;
-      height: 100% !important;
-      max-width: 100% !important;
-      max-height: 100% !important;
-      object-fit: contain !important;
-      background: #000 !important;
-    }
-
-    @media (max-width: 600px) {
-      .${CINEMA_MODE_CLASS} {
-        width: 100vw !important;
-        height: min(56.25vw, 72vh) !important;
-      }
-    }
-  `;
-  (document.head || document.documentElement).appendChild(style);
-}
-
-export function isCinemaModeActive(): boolean {
-  const youtubePlayer = document.querySelector<HTMLElement>('#movie_player');
-  return (
-    !!youtubePlayer?.classList.contains('ytp-big-mode') ||
-    !!document.querySelector(`.${CINEMA_MODE_CLASS}`)
+export function isFullscreenActive(): boolean {
+  return Boolean(
+    document.fullscreenElement ||
+    (document as Document & { webkitFullscreenElement?: Element | null }).webkitFullscreenElement ||
+    document.querySelector('#movie_player.ytp-fullscreen, #vilos .fullscreen, .watch-video--player-view.fullscreen')
   );
 }
 
-/** Expands only the player area, leaving the browser window and page controls intact. */
-export function toggleCinemaMode(
+function removeLegacyVirtualFullscreen(): void {
+  document.getElementById('vinttea-fs-style')?.remove();
+  document.querySelectorAll(
+    '.vinttea-virtual-fullscreen, .vinttea-video-fullscreen, .vinttea-fs-ancestor'
+  ).forEach((el) => {
+    el.classList.remove('vinttea-virtual-fullscreen', 'vinttea-video-fullscreen', 'vinttea-fs-ancestor');
+  });
+  document.documentElement.classList.remove('vinttea-fs-body-lock');
+  document.body?.classList.remove('vinttea-fs-body-lock');
+}
+
+function findPlayerFullscreenButton(
+  selectors: string[],
+  player: HTMLElement | null | undefined
+): HTMLElement | null {
+  const roots: ParentNode[] = player && player.isConnected ? [player, document] : [document];
+  for (const root of roots) {
+    for (const selector of selectors) {
+      for (const el of root.querySelectorAll<HTMLElement>(selector)) {
+        if (el.getAttribute('role') !== 'button' && el.tagName !== 'BUTTON') continue;
+        if (el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true') continue;
+        const style = window.getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        if (style.display === 'none' || style.visibility === 'hidden' || rect.width === 0 || rect.height === 0) continue;
+        return el;
+      }
+    }
+  }
+  return null;
+}
+
+/** Toggles the streaming site's own fullscreen control, scoped to its media player. */
+export function toggleReliableFullscreen(
   videoEl: HTMLVideoElement | null,
   containerEl?: HTMLElement | null,
-  forceState?: number
+  fsBtnSelectors: string[] = [],
+  forceState?: number // 1: enter, 0: exit
 ): void {
+  // Clean up the former CSS-only fullscreen mode from pages kept open across updates.
+  removeLegacyVirtualFullscreen();
+  const isCurrentlyFs = isFullscreenActive();
+  const shouldEnter = forceState !== undefined ? forceState === 1 : !isCurrentlyFs;
+  if (shouldEnter === isCurrentlyFs) return;
+
+  wakePlayerControls(containerEl || videoEl || undefined);
+  const nativeButton = findPlayerFullscreenButton(fsBtnSelectors, containerEl);
+  if (nativeButton) {
+    // Fullscreen buttons toggle state; dispatch exactly one click so we don't
+    // enter fullscreen and immediately undo it with a synthetic second click.
+    nativeButton.click();
+    return;
+  }
+
+  if (!shouldEnter) {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else if ((document as Document & { webkitFullscreenElement?: Element | null }).webkitFullscreenElement) {
+      (document as Document & { webkitExitFullscreen?: () => void }).webkitExitFullscreen?.();
+    }
+    return;
+  }
+
   const target = containerEl || videoEl?.parentElement || videoEl;
   if (!target) return;
 
-  const shouldEnable = forceState === undefined
-    ? !isCinemaModeActive()
-    : forceState === 1;
-
-  // YouTube's native size control toggles theater mode (the T shortcut), never fullscreen.
-  if (document.querySelector('#movie_player')) {
-    const theaterButton = findInteractiveButton(['.ytp-size-button'], true);
-    if (theaterButton) {
-      if (isCinemaModeActive() !== shouldEnable) clickElementSafely(theaterButton);
-      return;
-    }
+  const fullscreenTarget = target as HTMLElement & {
+    webkitRequestFullscreen?: () => void;
+  };
+  if (fullscreenTarget.requestFullscreen) {
+    fullscreenTarget.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+  } else {
+    fullscreenTarget.webkitRequestFullscreen?.();
   }
-
-  ensureCinemaStyle();
-  target.classList.toggle(CINEMA_MODE_CLASS, shouldEnable);
 }

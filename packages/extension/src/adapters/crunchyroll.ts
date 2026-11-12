@@ -5,8 +5,8 @@ import {
   isSkipButtonTrulyActive,
   clickElementSafely,
   wakePlayerControls,
-  toggleCinemaMode as applyCinemaMode,
-  isCinemaModeActive,
+  toggleReliableFullscreen,
+  isFullscreenActive,
 } from './utils';
 import { GenericAdapter } from './generic';
 
@@ -56,19 +56,29 @@ export class CrunchyrollAdapter extends GenericAdapter implements SiteAdapter {
     }
   }
 
-  /** Expands the player like a theater layout without changing browser fullscreen. */
-  override toggleCinemaMode(forceState?: number): void {
+  /** Uses Crunchyroll's own fullscreen control for the media player. */
+  override toggleFullscreen(forceState?: number): void {
     const video = document.querySelector<HTMLVideoElement>('video');
     const playerContainer =
       document.querySelector<HTMLElement>(
         '#vilos, #vilos-player, .velocity-player-package, #player0, [data-testid="player-wrapper"], [class*="video-player-wrapper" i], div[class*="player-wrapper"]'
       ) || video?.parentElement;
 
-    applyCinemaMode(video, playerContainer, forceState);
-  }
-
-  override toggleFullscreen(forceState?: number): void {
-    this.toggleCinemaMode(forceState);
+    toggleReliableFullscreen(
+      video,
+      playerContainer,
+      [
+        'button[data-testid="fullscreen-button"]',
+        'button[data-testid="fullscreen_button"]',
+        'button[data-t="fullscreen-btn"]',
+        'button[title*="pantalla completa" i]',
+        'button[title*="fullscreen" i]',
+        'button[aria-label*="pantalla completa" i]',
+        'button[aria-label*="fullscreen" i]',
+        'button[aria-label*="full screen" i]',
+      ],
+      forceState
+    );
   }
 
   override nextEpisode(): void {
@@ -375,7 +385,7 @@ export class CrunchyrollAdapter extends GenericAdapter implements SiteAdapter {
       title: episodeTitle
         ? `${seriesTitle ? seriesTitle + ' - ' : ''}${episodeTitle}`
         : seriesTitle || baseState.title,
-      cinemaMode: isCinemaModeActive(),
+      fullscreen: isFullscreenActive(),
       thumbnail: currentThumb,
       nextPreview: nextPreview || baseState.nextPreview,
       prevPreview: prevPreview || baseState.prevPreview,

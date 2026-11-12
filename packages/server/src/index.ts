@@ -290,11 +290,7 @@ export async function startServer(port: number = DEFAULT_PORT) {
               }
 
               // Forward multimedia commands to extension(s)
-              broadcastToExtensions(
-                msg.action === 'toggleFullscreen'
-                  ? { ...msg, action: 'toggleCinemaMode' }
-                  : msg
-              );
+              broadcastToExtensions(msg);
               break;
             }
 
@@ -822,9 +818,9 @@ function getBuiltinWebTesterHtml(): string {
           <span class="icon" id="muteIcon">🔊</span>
           <span class="btn-label">Mute / Desmutear</span>
         </button>
-        <button onclick="sendCommand('toggleCinemaMode')">
+              <button onclick="sendCommand('toggleFullscreen')">
           <span class="icon">⛶</span>
-          <span class="btn-label">Modo cine</span>
+          <span class="btn-label">Pantalla completa</span>
         </button>
       </div>
 
@@ -952,6 +948,7 @@ function getBuiltinWebTesterHtml(): string {
 }
 
 if (process.env.NODE_ENV !== 'test') {
-  startServer();
+  const configuredPort = Number.parseInt(process.env.VINTTEA_PORT || '', 10);
+  startServer(Number.isFinite(configuredPort) && configuredPort > 0 ? configuredPort : undefined);
 }
 

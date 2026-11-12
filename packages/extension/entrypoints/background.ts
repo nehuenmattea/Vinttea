@@ -160,11 +160,7 @@ export default defineBackground(() => {
   function handleServerMessage(msg: VintteaMessage) {
     if (msg.type === 'command') {
       const cmd = msg as CommandMessage;
-      if (cmd.action === 'toggleFullscreen' || cmd.action === 'toggleCinemaMode') {
-        forwardCommandToTab('toggleCinemaMode', cmd.value);
-      } else {
-        forwardCommandToTab(cmd.action, cmd.value);
-      }
+      forwardCommandToTab(cmd.action, cmd.value);
     }
   }
 
