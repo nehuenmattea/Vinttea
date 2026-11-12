@@ -328,12 +328,9 @@ namespace VintteaLauncher
 
             // Header Logo Text
             using (Font titleFont = new Font("Segoe UI", 20f, FontStyle.Bold))
-            using (Brush whiteBrush = new SolidBrush(Color.White))
-            using (Brush accentBrush = new SolidBrush(AccentRose))
+            using (Brush logoBrush = new SolidBrush(Color.White))
             {
-                g.DrawString("Vint", titleFont, whiteBrush, 0, 4);
-                SizeF vintSize = g.MeasureString("Vint", titleFont);
-                g.DrawString("tea", titleFont, accentBrush, vintSize.Width - 8, 4);
+                g.DrawString("Vinttea", titleFont, logoBrush, 0, 4);
             }
 
             // Subtitle
