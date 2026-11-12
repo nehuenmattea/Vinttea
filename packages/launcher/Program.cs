@@ -47,7 +47,21 @@ namespace VintteaLauncher
     public class MainForm : Form
     {
         // App metadata
-        public const string CurrentVersion = "2.0.1";
+        public static string CurrentVersion
+        {
+            get
+            {
+                try
+                {
+                    string packagePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "package.json");
+                    Match versionMatch = Regex.Match(File.ReadAllText(packagePath), "\\\"version\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"");
+                    if (versionMatch.Success) return versionMatch.Groups[1].Value;
+                }
+                catch { }
+
+                return "0.0.0";
+            }
+        }
         public const string GitHubRepo = "nehuenmattea/Vinttea";
 
         // Colors
@@ -88,7 +102,11 @@ namespace VintteaLauncher
         private Button btnExtensionFolder;
         private Button btnCheckUpdates;
         private Label lblUpdateStatus;
+        private Label lblUpdateProgress;
+        private ProgressBar updateProgressBar;
         private TextBox txtLog;
+        private string displayedVersion = CurrentVersion;
+        private bool updateInProgress;
 
         public MainForm()
         {
@@ -247,7 +265,7 @@ namespace VintteaLauncher
             serverCard.Controls.Add(btnExtensionFolder);
 
             // 4. Updates & GitHub Card
-            Panel updateCard = CreateCardPanel(16, 480, 590, 105);
+            Panel updateCard = CreateCardPanel(16, 480, 590, 132);
             mainContainer.Controls.Add(updateCard);
 
             Label lblUpdateTitle = new Label();
@@ -259,25 +277,38 @@ namespace VintteaLauncher
             updateCard.Controls.Add(lblUpdateTitle);
 
             lblUpdateStatus = new Label();
-            lblUpdateStatus.Text = string.Format("Versión instalada: v{0} • GitHub: {1}", CurrentVersion, GitHubRepo);
+            lblUpdateStatus.Text = string.Format("Versión instalada: v{0} • GitHub: {1}", displayedVersion, GitHubRepo);
             lblUpdateStatus.Location = new Point(16, 32);
             lblUpdateStatus.AutoSize = true;
             lblUpdateStatus.ForeColor = TextMuted;
             updateCard.Controls.Add(lblUpdateStatus);
 
-            btnCheckUpdates = CreateButton("🔄 Buscar Actualizaciones", 16, 56, 272, 38, Color.FromArgb(32, 38, 58), AccentIndigo);
+            lblUpdateProgress = new Label();
+            lblUpdateProgress.Location = new Point(16, 54);
+            lblUpdateProgress.Size = new Size(558, 16);
+            lblUpdateProgress.ForeColor = TextMuted;
+            lblUpdateProgress.Visible = false;
+            updateCard.Controls.Add(lblUpdateProgress);
+
+            updateProgressBar = new ProgressBar();
+            updateProgressBar.Location = new Point(16, 72);
+            updateProgressBar.Size = new Size(558, 8);
+            updateProgressBar.Visible = false;
+            updateCard.Controls.Add(updateProgressBar);
+
+            btnCheckUpdates = CreateButton("🔄 Buscar Actualizaciones", 16, 86, 272, 38, Color.FromArgb(32, 38, 58), AccentIndigo);
             btnCheckUpdates.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
             btnCheckUpdates.Click += (s, e) => CheckForUpdates(true);
             updateCard.Controls.Add(btnCheckUpdates);
 
-            Button btnOpenReleases = CreateButton("📦 Ver Releases en GitHub", 300, 56, 274, 38, Color.FromArgb(32, 38, 58), TextPrimary);
+            Button btnOpenReleases = CreateButton("📦 Ver Releases en GitHub", 300, 86, 274, 38, Color.FromArgb(32, 38, 58), TextPrimary);
             btnOpenReleases.Font = new Font("Segoe UI", 9f, FontStyle.Regular);
             btnOpenReleases.Click += (s, e) => Process.Start("https://github.com/" + GitHubRepo + "/releases");
             updateCard.Controls.Add(btnOpenReleases);
 
             // 5. Real-Time Activity Log Box
             txtLog = new TextBox();
-            txtLog.Location = new Point(16, 595);
+            txtLog.Location = new Point(16, 622);
             txtLog.Size = new Size(590, 108);
             txtLog.Multiline = true;
             txtLog.ReadOnly = true;
@@ -341,7 +372,7 @@ namespace VintteaLauncher
             }
 
             // Version Pill Badge
-            string verText = "v" + CurrentVersion;
+            string verText = "v" + displayedVersion;
             using (Font verFont = new Font("Segoe UI", 8.5f, FontStyle.Bold))
             {
                 SizeF sz = g.MeasureString(verText, verFont);
@@ -804,7 +835,7 @@ namespace VintteaLauncher
                         string releaseBody = bodyMatch.Success ? Regex.Unescape(bodyMatch.Groups[1].Value) : "Mejoras y correcciones.";
                         string downloadUrl = zipMatch.Success ? zipMatch.Groups[1].Value : (zipballMatch.Success ? zipballMatch.Groups[1].Value : null);
 
-                        Version currentVer = new Version(CurrentVersion);
+                        Version currentVer = new Version(displayedVersion);
                         Version remoteVer = new Version(remoteTag);
 
                         if (remoteVer > currentVer)
@@ -823,15 +854,22 @@ namespace VintteaLauncher
                                 {
                                     InstallUpdate(downloadUrl, remoteTag);
                                 }
-                                ResetUpdateBtn();
+                                else
+                                {
+                                    if (dr == DialogResult.Yes)
+                                    {
+                                        MessageBox.Show("La release no tiene un archivo de actualización descargable.", "Actualización de Vinttea", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                                    }
+                                    ResetUpdateBtn();
+                                }
                             }));
                         }
                         else
                         {
                             this.Invoke(new Action(() =>
                             {
-                                Log("Vinttea ya está actualizado en la versión más reciente (v" + CurrentVersion + ").");
-                                if (isManual) MessageBox.Show("Vinttea ya está en la versión más reciente (v" + CurrentVersion + ").", "Vinttea", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                Log("Vinttea ya está actualizado en la versión más reciente (v" + displayedVersion + ").");
+                                if (isManual) MessageBox.Show("Vinttea ya está en la versión más reciente (v" + displayedVersion + ").", "Vinttea", MessageBoxButtons.OK, MessageBoxIcon.Information);
                                 ResetUpdateBtn();
                             }));
                         }
@@ -851,12 +889,107 @@ namespace VintteaLauncher
 
         private void ResetUpdateBtn()
         {
+            if (btnCheckUpdates.InvokeRequired)
+            {
+                btnCheckUpdates.Invoke(new Action(ResetUpdateBtn));
+                return;
+            }
             btnCheckUpdates.Enabled = true;
             btnCheckUpdates.Text = "🔄 Buscar Actualizaciones";
         }
 
+        private void ReportUpdateProgress(string message, int percent)
+        {
+            if (IsDisposed || !IsHandleCreated) return;
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action<string, int>(ReportUpdateProgress), message, percent);
+                return;
+            }
+
+            lblUpdateProgress.Text = message;
+            lblUpdateProgress.Visible = true;
+            updateProgressBar.Visible = true;
+            if (percent < 0)
+            {
+                updateProgressBar.Style = ProgressBarStyle.Marquee;
+            }
+            else
+            {
+                updateProgressBar.Style = ProgressBarStyle.Continuous;
+                updateProgressBar.Value = Math.Max(0, Math.Min(100, percent));
+            }
+        }
+
+        private void SetDisplayedVersion(string version)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action<string>(SetDisplayedVersion), version);
+                return;
+            }
+
+            displayedVersion = version;
+            lblUpdateStatus.Text = string.Format("Versión instalada: v{0} • GitHub: {1}", displayedVersion, GitHubRepo);
+            headerPanel.Invalidate();
+        }
+
+        private bool AskRestartNow(string version)
+        {
+            using (Form prompt = new Form())
+            using (Label message = new Label())
+            using (Button restartButton = new Button())
+            using (Button laterButton = new Button())
+            {
+                prompt.Text = "Actualización lista";
+                prompt.Size = new Size(430, 190);
+                prompt.FormBorderStyle = FormBorderStyle.FixedDialog;
+                prompt.StartPosition = FormStartPosition.CenterParent;
+                prompt.MaximizeBox = false;
+                prompt.MinimizeBox = false;
+                prompt.BackColor = BgDark;
+                prompt.ForeColor = TextPrimary;
+                prompt.Font = new Font("Segoe UI", 9.25f, FontStyle.Regular);
+
+                message.Text = string.Format(
+                    "Vinttea se actualizó a la versión v{0}.\n¿Querés reiniciar ahora para ver los cambios?",
+                    version
+                );
+                message.Location = new Point(20, 20);
+                message.Size = new Size(374, 55);
+                message.ForeColor = TextPrimary;
+
+                restartButton.Text = "Sí, reiniciar";
+                restartButton.DialogResult = DialogResult.Yes;
+                restartButton.Location = new Point(154, 100);
+                restartButton.Size = new Size(116, 34);
+                restartButton.BackColor = AccentGreen;
+                restartButton.ForeColor = Color.White;
+                restartButton.FlatStyle = FlatStyle.Flat;
+
+                laterButton.Text = "Después";
+                laterButton.DialogResult = DialogResult.No;
+                laterButton.Location = new Point(278, 100);
+                laterButton.Size = new Size(116, 34);
+                laterButton.BackColor = Color.FromArgb(32, 38, 58);
+                laterButton.ForeColor = TextPrimary;
+                laterButton.FlatStyle = FlatStyle.Flat;
+
+                prompt.Controls.Add(message);
+                prompt.Controls.Add(restartButton);
+                prompt.Controls.Add(laterButton);
+                prompt.AcceptButton = restartButton;
+                prompt.CancelButton = laterButton;
+                return prompt.ShowDialog(this) == DialogResult.Yes;
+            }
+        }
+
         private void InstallUpdate(string downloadUrl, string newVersion)
         {
+            updateInProgress = true;
+            btnCheckUpdates.Enabled = false;
+            btnCheckUpdates.Text = "Actualizando...";
+            ReportUpdateProgress("Preparando la descarga...", 0);
             Log("Descargando actualización v" + newVersion + "...");
             ThreadPool.QueueUserWorkItem((st) =>
             {
@@ -865,12 +998,9 @@ namespace VintteaLauncher
                     string tempZip = Path.Combine(Path.GetTempPath(), "vinttea-update-" + newVersion + ".zip");
                     string extractDir = Path.Combine(Path.GetTempPath(), "vinttea-update-extracted-" + newVersion);
 
-                    using (WebClient wc = new WebClient())
-                    {
-                        wc.Headers.Add("User-Agent", "Vinttea-Launcher");
-                        wc.DownloadFile(downloadUrl, tempZip);
-                    }
+                    DownloadUpdateWithProgress(downloadUrl, tempZip);
 
+                    ReportUpdateProgress("Extrayendo la actualización...", -1);
                     Log("Extrayendo archivos de la actualización...");
                     if (Directory.Exists(extractDir)) Directory.Delete(extractDir, true);
                     ZipFile.ExtractToDirectory(tempZip, extractDir);
@@ -886,10 +1016,12 @@ namespace VintteaLauncher
                     // Stop server before overwriting
                     StopServer();
 
+                    ReportUpdateProgress("Instalando archivos...", -1);
                     Log("Reemplazando y agregando archivos actualizados...");
                     CopyDirectory(sourceDir, appDir);
 
                     // Recompile packages
+                    ReportUpdateProgress("Compilando los paquetes...", -1);
                     Log("Recompilando paquetes de Vinttea...");
                     string cmd = isPnpmInstalled ? "pnpm" : "npx pnpm";
                     Process bp = Process.Start(new ProcessStartInfo
@@ -900,23 +1032,73 @@ namespace VintteaLauncher
                         CreateNoWindow = true
                     });
                     bp.WaitForExit();
+                    if (bp.ExitCode != 0)
+                    {
+                        throw new InvalidOperationException("La compilación terminó con el código " + bp.ExitCode + ".");
+                    }
 
                     Log("¡Actualización completada exitosamente a v" + newVersion + "!");
-                    MessageBox.Show(
-                        string.Format("¡Vinttea se ha actualizado correctamente a la versión v{0}!\nLa aplicación se reiniciará.", newVersion),
-                        "Actualización Exitosa",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Information
-                    );
+                    ReportUpdateProgress("Actualización completada.", 100);
+                    SetDisplayedVersion(newVersion);
+                    bool restartNow = (bool)Invoke(new Func<bool>(() => AskRestartNow(newVersion)));
+                    if (restartNow)
+                    {
+                        updateInProgress = false;
+                        Invoke(new Action(() => Application.Restart()));
+                        return;
+                    }
 
-                    Application.Restart();
+                    Log("Reinicio pospuesto; los cambios se aplicarán al volver a abrir Vinttea.");
+                    ReportUpdateProgress("Listo. Reiniciá Vinttea cuando quieras aplicar los cambios.", 100);
+                    updateInProgress = false;
+                    Invoke(new Action(ResetUpdateBtn));
                 }
                 catch (Exception ex)
                 {
                     Log("Error durante la actualización: " + ex.Message);
-                    MessageBox.Show("Hubo un error al aplicar la actualización: " + ex.Message, "Vinttea", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    updateInProgress = false;
+                    if (!IsDisposed && IsHandleCreated)
+                    {
+                        Invoke(new Action(() =>
+                        {
+                            updateProgressBar.Visible = false;
+                            lblUpdateProgress.Visible = false;
+                            ResetUpdateBtn();
+                            MessageBox.Show("Hubo un error al aplicar la actualización: " + ex.Message, "Vinttea", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }));
+                    }
                 }
             });
+        }
+
+        private void DownloadUpdateWithProgress(string downloadUrl, string destinationPath)
+        {
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(downloadUrl);
+            request.UserAgent = "Vinttea-Launcher";
+            request.Timeout = 30000;
+
+            using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+            using (Stream input = response.GetResponseStream())
+            using (FileStream output = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                long totalBytes = response.ContentLength;
+                long downloadedBytes = 0;
+                byte[] buffer = new byte[64 * 1024];
+                int bytesRead;
+
+                while ((bytesRead = input.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    output.Write(buffer, 0, bytesRead);
+                    downloadedBytes += bytesRead;
+                    int percent = totalBytes > 0
+                        ? (int)Math.Min(60, downloadedBytes * 60L / totalBytes)
+                        : -1;
+                    string status = totalBytes > 0
+                        ? string.Format("Descargando... {0}%", (int)(downloadedBytes * 100L / totalBytes))
+                        : "Descargando la actualización...";
+                    ReportUpdateProgress(status, percent);
+                }
+            }
         }
 
         private void CopyDirectory(string sourceDir, string destDir)
@@ -969,6 +1151,18 @@ namespace VintteaLauncher
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            if (updateInProgress)
+            {
+                e.Cancel = true;
+                MessageBox.Show(
+                    "Esperá a que termine la actualización antes de cerrar Vinttea.",
+                    "Actualización en curso",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
+                return;
+            }
+
             ExitApplication();
             base.OnFormClosing(e);
         }
