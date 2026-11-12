@@ -155,60 +155,13 @@ export default defineBackground(() => {
     });
   }
 
-  let lastSavedWindowState: chrome.windows.WindowState = 'maximized';
   let lastKnownPlayerState: any = null;
-
-  async function handleFullscreenCommand() {
-    const tab = await getTargetTab();
-    if (!tab || !tab.id) {
-      console.warn('[Vinttea] No suitable tab for fullscreen command');
-      return;
-    }
-
-    lastActiveMediaTabId = tab.id;
-
-    if (tab.windowId) {
-      try {
-        const win = await chrome.windows.get(tab.windowId);
-        const isFs = win.state === 'fullscreen';
-        if (!isFs && win.state) {
-          lastSavedWindowState = win.state;
-        }
-        const targetFs = !isFs;
-        const targetState: chrome.windows.WindowState = targetFs ? 'fullscreen' : (lastSavedWindowState || 'maximized');
-
-        // Focus the window and activate the media tab first
-        await chrome.windows.update(tab.windowId, { focused: true });
-        await chrome.tabs.update(tab.id, { active: true });
-
-        // Apply OS fullscreen state (F11)
-        await chrome.windows.update(tab.windowId, { state: targetState });
-
-        // Notify tab to apply/remove virtual fullscreen styles with explicit flag (1 = enter, 0 = exit)
-        chrome.tabs.sendMessage(tab.id, {
-          type: 'vinttea_command',
-          action: 'toggleFullscreen',
-          value: targetFs ? 1 : 0,
-        }, (res) => {
-          if (res && res.state) {
-            sendToServer({ type: 'state', state: res.state });
-          }
-        });
-        return;
-      } catch (err) {
-        console.warn('[Vinttea] Error updating window fullscreen:', err);
-      }
-    }
-
-    // Fallback: regular command forwarding
-    forwardCommandToTab('toggleFullscreen');
-  }
 
   function handleServerMessage(msg: VintteaMessage) {
     if (msg.type === 'command') {
       const cmd = msg as CommandMessage;
-      if (cmd.action === 'toggleFullscreen') {
-        handleFullscreenCommand();
+      if (cmd.action === 'toggleFullscreen' || cmd.action === 'toggleCinemaMode') {
+        forwardCommandToTab('toggleCinemaMode', cmd.value);
       } else {
         forwardCommandToTab(cmd.action, cmd.value);
       }
@@ -234,21 +187,6 @@ export default defineBackground(() => {
       lastKnownPlayerState = state;
       sendToServer({ type: 'state', state });
       sendResponse({ received: true });
-    } else if (message.type === 'vinttea_window_fullscreen') {
-      if (sender.tab?.windowId) {
-        chrome.windows.get(sender.tab.windowId, (win) => {
-          if (chrome.runtime.lastError || !win) return;
-          const isFs = win.state === 'fullscreen';
-          if (!isFs && win.state) {
-            lastSavedWindowState = win.state;
-          }
-          const targetState: chrome.windows.WindowState = message.fullscreen !== undefined
-            ? (message.fullscreen ? 'fullscreen' : (lastSavedWindowState || 'maximized'))
-            : (isFs ? (lastSavedWindowState || 'maximized') : 'fullscreen');
-          chrome.windows.update(sender.tab!.windowId, { state: targetState, focused: true });
-        });
-      }
-      sendResponse({ handled: true });
     }
   });
 

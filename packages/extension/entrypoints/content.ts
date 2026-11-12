@@ -149,8 +149,11 @@ export default defineContentScript({
               adapter.toggleMute();
             }
             break;
-          case 'toggleFullscreen':
-            if (adapter.toggleFullscreen) {
+          case 'toggleCinemaMode':
+          case 'toggleFullscreen': // Legacy remote clients now map to cinema mode.
+            if (adapter.toggleCinemaMode) {
+              adapter.toggleCinemaMode(value);
+            } else if (adapter.toggleFullscreen) {
               adapter.toggleFullscreen(value);
             }
             break;

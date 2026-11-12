@@ -117,30 +117,6 @@ function handleCancelShutdown(notify: boolean = true) {
   }
 }
 
-function toggleOSFullscreen() {
-  if (process.platform === 'win32') {
-    // PowerShell script to activate the browser and send hardware F11 key
-    const psCmd = `
-      $w = New-Object -ComObject WScript.Shell;
-      $found = $w.AppActivate('Google Chrome');
-      if (-not $found) { $found = $w.AppActivate('Edge') };
-      if (-not $found) { $found = $w.AppActivate('Brave') };
-      if (-not $found) { $found = $w.AppActivate('Vivaldi') };
-      Start-Sleep -Milliseconds 60;
-      Add-Type -AssemblyName System.Windows.Forms;
-      [System.Windows.Forms.SendKeys]::SendWait('{F11}');
-    `.replace(/\r?\n\s*/g, ' ');
-
-    exec(`powershell -NoProfile -ExecutionPolicy Bypass -Command "${psCmd}"`, (err) => {
-      if (err) {
-        server.log.warn({ err }, 'Error triggering OS F11 via PowerShell');
-      } else {
-        server.log.info('Successfully triggered OS F11 via SendKeys');
-      }
-    });
-  }
-}
-
 function broadcastToRemotes(message: VintteaMessage) {
   const data = JSON.stringify(message);
   for (const client of remoteClients) {
@@ -311,12 +287,14 @@ export async function startServer(port: number = DEFAULT_PORT) {
               } else if (msg.action === 'cancelShutdown') {
                 handleCancelShutdown();
                 break;
-              } else if (msg.action === 'toggleFullscreen') {
-                toggleOSFullscreen();
               }
 
               // Forward multimedia commands to extension(s)
-              broadcastToExtensions(msg);
+              broadcastToExtensions(
+                msg.action === 'toggleFullscreen'
+                  ? { ...msg, action: 'toggleCinemaMode' }
+                  : msg
+              );
               break;
             }
 
@@ -844,9 +822,9 @@ function getBuiltinWebTesterHtml(): string {
           <span class="icon" id="muteIcon">🔊</span>
           <span class="btn-label">Mute / Desmutear</span>
         </button>
-        <button onclick="sendCommand('toggleFullscreen')">
+        <button onclick="sendCommand('toggleCinemaMode')">
           <span class="icon">⛶</span>
-          <span class="btn-label">Pantalla completa</span>
+          <span class="btn-label">Modo cine</span>
         </button>
       </div>
 

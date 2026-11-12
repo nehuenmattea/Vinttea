@@ -22,6 +22,7 @@ body {
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   justify-content: center;
   touch-action: manipulation;
@@ -30,9 +31,317 @@ body {
 
 #app {
   width: 100%;
+  min-width: 0;
   max-width: 480px;
   display: flex;
   flex-direction: column;
   padding: 16px;
   gap: 16px;
+}
+
+.remote-panel {
+  width: 100%;
+  min-width: 0;
+  overflow: clip;
+}
+
+.remote-header,
+.remote-brand,
+.remote-header-actions,
+.now-playing-main,
+.now-playing-content,
+.anime-heading {
+  min-width: 0;
+}
+
+.remote-header {
+  flex-wrap: wrap;
+  row-gap: 10px;
+}
+
+.remote-brand {
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+}
+
+.anime-badge,
+.service-badge {
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.remote-header-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.now-playing-main {
+  align-items: center;
+}
+
+.now-playing-thumbnail {
+  width: 90px;
+  height: 90px;
+  aspect-ratio: 1;
+}
+
+.now-playing-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.anime-heading {
+  min-height: 44px;
+}
+
+.series-title {
+  min-width: 0;
+}
+
+.dragon-ball-sphere {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 229, 139, .78);
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 27%, #fff7c2 0%, #ffd257 17%, #f59e0b 55%, #b45309 100%);
+  box-shadow: 0 0 16px rgba(245, 158, 11, .48), inset 0 2px 5px rgba(255, 255, 255, .55), inset 0 -5px 9px rgba(120, 53, 15, .48);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.dragon-ball-sphere:hover,
+.dragon-ball-sphere:focus-visible {
+  transform: scale(1.06);
+  box-shadow: 0 0 22px rgba(245, 158, 11, .68), inset 0 2px 5px rgba(255, 255, 255, .55), inset 0 -5px 9px rgba(120, 53, 15, .48);
+}
+
+.dragon-ball-sphere:focus-visible {
+  outline: 2px solid #fff0a8;
+  outline-offset: 3px;
+}
+
+.dragon-ball-stars {
+  width: 32px;
+  height: 32px;
+  filter: drop-shadow(0 1px 1px rgba(91, 10, 13, .5));
+}
+
+.dragon-ball-gloss {
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  width: 15px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .76);
+  filter: blur(1px);
+  transform: rotate(-28deg);
+  pointer-events: none;
+}
+
+.ki-burst-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  animation: ki-overlay-in .85s ease-out both;
+}
+
+.ki-burst-overlay span {
+  display: grid;
+  place-items: center;
+  width: clamp(96px, 24vw, 148px);
+  aspect-ratio: 1;
+  border: 2px solid rgba(255, 223, 110, .92);
+  border-radius: 50%;
+  color: #fff7cc;
+  font-size: clamp(1.4rem, 6vw, 2.4rem);
+  font-weight: 950;
+  letter-spacing: .12em;
+  text-shadow: 0 0 15px #f59e0b, 0 2px 4px rgba(0, 0, 0, .6);
+  background: radial-gradient(circle, rgba(255, 205, 66, .48), rgba(245, 158, 11, .16) 52%, transparent 72%);
+  box-shadow: 0 0 28px rgba(245, 158, 11, .55), inset 0 0 24px rgba(255, 235, 160, .25);
+  animation: ki-core-pulse .85s cubic-bezier(.16,.8,.3,1) both;
+}
+
+@keyframes ki-overlay-in {
+  0% { opacity: 0; }
+  18% { opacity: 1; }
+  78% { opacity: .95; }
+  100% { opacity: 0; }
+}
+
+@keyframes ki-core-pulse {
+  0% { transform: scale(.45); }
+  48% { transform: scale(1.08); }
+  100% { transform: scale(.92); }
+}
+
+.skip-intro-button {
+  position: relative;
+  min-height: 56px;
+  overflow: hidden;
+}
+
+.skip-intro-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.skip-intro-content > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skip-available-badge {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.cinema-mode-button {
+  min-width: 0;
+}
+
+.timeline-time-row > span:nth-child(2) {
+  text-align: center;
+}
+
+@media (max-width: 520px) {
+  #app {
+    padding: 12px;
+    gap: 14px;
+  }
+
+  .remote-header {
+    justify-content: center !important;
+    padding-inline: 0 !important;
+  }
+
+  .remote-brand {
+    width: 100%;
+    flex: 1 1 100%;
+    justify-content: center;
+    column-gap: 7px !important;
+    row-gap: 7px;
+  }
+
+  .remote-logo {
+    font-size: 1.35rem !important;
+  }
+
+  .remote-header-actions {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .now-playing-card {
+    padding: 16px 12px !important;
+    border-radius: 18px !important;
+  }
+
+  .now-playing-main {
+    gap: 11px !important;
+  }
+
+  .now-playing-thumbnail {
+    width: clamp(64px, 21vw, 82px) !important;
+    height: auto !important;
+    aspect-ratio: 1;
+  }
+
+  .now-playing-content {
+    gap: 4px !important;
+  }
+
+  .anime-heading {
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  .dragon-ball-sphere {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+  }
+
+  .dragon-ball-stars {
+    width: 31px;
+    height: 31px;
+  }
+
+  .timeline-time-row {
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .timeline-time-row > span:nth-child(2) {
+    font-size: .66rem !important;
+    white-space: normal;
+  }
+
+  .skip-intro-button {
+    padding: 12px 10px !important;
+  }
+
+  .skip-available-badge {
+    right: 7px;
+    top: 5px;
+    transform: none;
+    font-size: .55rem !important;
+  }
+}
+
+@media (max-width: 360px) {
+  #app {
+    padding: 10px;
+  }
+
+  .service-badge,
+  .anime-badge {
+    font-size: .62rem !important;
+    padding: 3px 6px !important;
+  }
+
+  .remote-header-actions {
+    gap: 6px !important;
+  }
+
+  .now-playing-card {
+    padding-inline: 10px !important;
+  }
+
+  .now-playing-main {
+    gap: 9px !important;
+  }
+
+  .now-playing-thumbnail {
+    width: 64px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dragon-ball-sphere,
+  .ki-burst-overlay,
+  .ki-burst-overlay span {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
 }

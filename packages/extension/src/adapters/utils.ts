@@ -166,157 +166,79 @@ export function isElementVisible(el: HTMLElement): boolean {
   return rect.width > 0 && rect.height > 0;
 }
 
-function ensureFsStyle() {
-  if (!document.getElementById('vinttea-fs-style')) {
-    const style = document.createElement('style');
-    style.id = 'vinttea-fs-style';
-    style.textContent = `
-      html.vinttea-fs-body-lock,
-      body.vinttea-fs-body-lock {
-        overflow: hidden !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        background: #000 !important;
-      }
+const CINEMA_MODE_CLASS = 'vinttea-cinema-mode';
 
-      /* Neutralize any ancestor transforms/containment that trap position: fixed */
-      .vinttea-fs-ancestor {
-        transform: none !important;
-        filter: none !important;
-        perspective: none !important;
-        contain: none !important;
-        clip-path: none !important;
-        overflow: visible !important;
-        max-width: none !important;
-        max-height: none !important;
-      }
+function ensureCinemaStyle(): void {
+  if (document.getElementById('vinttea-cinema-style')) return;
 
-      .vinttea-virtual-fullscreen {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        max-width: 100vw !important;
-        max-height: 100vh !important;
-        z-index: 2147483647 !important;
-        background: #000 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        border: none !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-      }
+  const style = document.createElement('style');
+  style.id = 'vinttea-cinema-style';
+  style.textContent = `
+    .${CINEMA_MODE_CLASS} {
+      position: relative !important;
+      z-index: 2147483000 !important;
+      width: min(100vw, 177.78vh) !important;
+      max-width: 100vw !important;
+      height: min(56.25vw, 82vh) !important;
+      min-height: 0 !important;
+      aspect-ratio: 16 / 9 !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      margin-top: clamp(16px, 3vh, 36px) !important;
+      margin-bottom: clamp(16px, 3vh, 36px) !important;
+      background: #000 !important;
+      box-shadow: 0 18px 60px rgba(0, 0, 0, .45) !important;
+    }
 
-      .vinttea-virtual-fullscreen video,
-      video.vinttea-video-fullscreen {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
+    .${CINEMA_MODE_CLASS} video {
+      width: 100% !important;
+      height: 100% !important;
+      max-width: 100% !important;
+      max-height: 100% !important;
+      object-fit: contain !important;
+      background: #000 !important;
+    }
+
+    @media (max-width: 600px) {
+      .${CINEMA_MODE_CLASS} {
         width: 100vw !important;
-        height: 100vh !important;
-        max-width: 100vw !important;
-        max-height: 100vh !important;
-        object-fit: contain !important;
-        background: #000 !important;
-        z-index: 2147483647 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        border: none !important;
+        height: min(56.25vw, 72vh) !important;
       }
-    `;
-    (document.head || document.documentElement).appendChild(style);
-  }
+    }
+  `;
+  (document.head || document.documentElement).appendChild(style);
 }
 
-export function isFullscreenActive(): boolean {
-  const isDocFs = !!document.fullscreenElement;
-  const isCssFs = document.body.classList.contains('vinttea-fs-body-lock');
-  const isWindowFs =
-    window.matchMedia('(display-mode: fullscreen)').matches ||
-    (typeof window !== 'undefined' &&
-      typeof screen !== 'undefined' &&
-      window.innerHeight >= screen.height - 4 &&
-      window.innerWidth >= screen.width - 4);
-
-  return isDocFs || isCssFs || isWindowFs;
+export function isCinemaModeActive(): boolean {
+  const youtubePlayer = document.querySelector<HTMLElement>('#movie_player');
+  return (
+    !!youtubePlayer?.classList.contains('ytp-big-mode') ||
+    !!document.querySelector(`.${CINEMA_MODE_CLASS}`)
+  );
 }
 
-/**
- * Bulletproof fullscreen toggle that guarantees true edge-to-edge video display:
- * 1. Window-level OS fullscreen via background script (hides Windows taskbar, desktop icons, browser chrome).
- * 2. Neutralizes parent CSS containment/transforms so video is untrapped.
- * 3. Expands video element to 100vw x 100vh (object-fit: contain).
- * 4. Dispatches native button clicks and 'f' shortcut.
- */
-export function toggleReliableFullscreen(
+/** Expands only the player area, leaving the browser window and page controls intact. */
+export function toggleCinemaMode(
   videoEl: HTMLVideoElement | null,
   containerEl?: HTMLElement | null,
-  fsBtnSelectors: string[] = [],
-  forceState?: number // 1: enter, 0: exit
+  forceState?: number
 ): void {
-  ensureFsStyle();
-
-  const isCurrentlyFs = isFullscreenActive();
-  const shouldExit = forceState !== undefined ? forceState === 0 : isCurrentlyFs;
-
-  if (shouldExit) {
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
-    }
-    document.querySelectorAll('.vinttea-virtual-fullscreen').forEach((el) => {
-      el.classList.remove('vinttea-virtual-fullscreen');
-    });
-    document.querySelectorAll('.vinttea-video-fullscreen').forEach((el) => {
-      el.classList.remove('vinttea-video-fullscreen');
-    });
-    document.querySelectorAll('.vinttea-fs-ancestor').forEach((el) => {
-      el.classList.remove('vinttea-fs-ancestor');
-    });
-    document.documentElement.classList.remove('vinttea-fs-body-lock');
-    document.body.classList.remove('vinttea-fs-body-lock');
-
-    simulateKey('Escape', 'Escape', 27);
-    chrome.runtime.sendMessage({ type: 'vinttea_window_fullscreen', fullscreen: false }).catch(() => {});
-    return;
-  }
-
-  // 1. Try native button first
-  if (fsBtnSelectors.length > 0) {
-    const btn = findInteractiveButton(fsBtnSelectors, true);
-    if (btn) {
-      clickElementSafely(btn);
-    }
-  }
-
-  // 2. Dispatch 'f' and 'F' keydown/keyup on window, document, and video
-  simulateKey('f', 'KeyF', 70);
-  simulateKey('F', 'KeyF', 70);
-  if (videoEl) {
-    simulateKey('f', 'KeyF', 70, videoEl);
-  }
-
-  // 3. Untrap and expand video to true 100vw x 100vh edge-to-edge
   const target = containerEl || videoEl?.parentElement || videoEl;
-  if (target) {
-    target.classList.add('vinttea-virtual-fullscreen');
-  }
-  if (videoEl) {
-    videoEl.classList.add('vinttea-video-fullscreen');
+  if (!target) return;
+
+  const shouldEnable = forceState === undefined
+    ? !isCinemaModeActive()
+    : forceState === 1;
+
+  // YouTube's native size control toggles theater mode (the T shortcut), never fullscreen.
+  if (document.querySelector('#movie_player')) {
+    const theaterButton = findInteractiveButton(['.ytp-size-button'], true);
+    if (theaterButton) {
+      if (isCinemaModeActive() !== shouldEnable) clickElementSafely(theaterButton);
+      return;
+    }
   }
 
-  // Neutralize ancestors
-  let el: HTMLElement | null = (target || videoEl)?.parentElement || null;
-  while (el && el !== document.body && el !== document.documentElement) {
-    el.classList.add('vinttea-fs-ancestor');
-    el = el.parentElement;
-  }
-
-  document.documentElement.classList.add('vinttea-fs-body-lock');
-  document.body.classList.add('vinttea-fs-body-lock');
-
-  chrome.runtime.sendMessage({ type: 'vinttea_window_fullscreen', fullscreen: true }).catch(() => {});
+  ensureCinemaStyle();
+  target.classList.toggle(CINEMA_MODE_CLASS, shouldEnable);
 }

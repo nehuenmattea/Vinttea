@@ -3,8 +3,8 @@ import {
   findInteractiveButton,
   clickElementSafely,
   simulateKey,
-  toggleReliableFullscreen,
-  isFullscreenActive,
+  toggleCinemaMode as applyCinemaMode,
+  isCinemaModeActive,
 } from './utils';
 import { GenericAdapter } from './generic';
 
@@ -52,22 +52,17 @@ export class YouTubeAdapter extends GenericAdapter implements SiteAdapter {
     }
   }
 
-  override toggleFullscreen(forceState?: number): void {
+  override toggleCinemaMode(forceState?: number): void {
     const video = this.getYouTubeVideo();
     const playerContainer =
       document.querySelector<HTMLElement>('#movie_player, ytd-player, #player') ||
       video?.parentElement;
 
-    toggleReliableFullscreen(
-      video,
-      playerContainer,
-      [
-        '.ytp-fullscreen-button',
-        'button[title*="pantalla completa" i]',
-        'button[aria-label*="pantalla completa" i]',
-      ],
-      forceState
-    );
+    applyCinemaMode(video, playerContainer, forceState);
+  }
+
+  override toggleFullscreen(forceState?: number): void {
+    this.toggleCinemaMode(forceState);
   }
 
   override skipIntro(): void {
@@ -170,7 +165,7 @@ export class YouTubeAdapter extends GenericAdapter implements SiteAdapter {
       duration: Math.round(video.duration || 0),
       volume: video.muted ? 0 : video.volume,
       muted: video.muted,
-      fullscreen: isFullscreenActive(),
+      cinemaMode: isCinemaModeActive(),
       playbackRate: video.playbackRate,
       thumbnail,
       nextPreview,

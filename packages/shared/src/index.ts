@@ -17,6 +17,8 @@ export interface PlayerState {
   duration: number;     // seconds
   volume: number;       // 0.0 to 1.0
   muted: boolean;
+  cinemaMode?: boolean;
+  /** @deprecated Legacy field retained for older clients. */
   fullscreen?: boolean;
   service?: 'youtube' | 'youtubemusic' | 'netflix' | 'crunchyroll' | 'prime' | 'generic' | string;
   playbackRate?: number;
@@ -43,6 +45,8 @@ export type CommandAction =
   | 'setVolume'         // target volume (0.0 to 1.0)
   | 'volumeDelta'       // volume change (+0.1, -0.1)
   | 'toggleMute'
+  | 'toggleCinemaMode'
+  /** @deprecated Legacy command mapped to cinema mode. */
   | 'toggleFullscreen'
   | 'nextEpisode'
   | 'prevEpisode'
@@ -125,6 +129,8 @@ export interface SiteAdapter {
   seekTo?(seconds: number): Promise<void> | void;
   setVolume(level: number): Promise<void> | void;
   toggleMute?(): Promise<void> | void;
+  toggleCinemaMode?(): Promise<void> | void;
+  /** @deprecated Legacy adapter method mapped to cinema mode. */
   toggleFullscreen?(value?: number): Promise<void> | void;
   nextEpisode(): Promise<void> | void;
   prevEpisode(): Promise<void> | void;

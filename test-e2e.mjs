@@ -6,7 +6,7 @@ import assert from 'assert';
 console.log('🧪 Iniciando prueba E2E del protocolo Vinttea...');
 
 // Iniciar servidor en subproceso
-const serverProcess = spawn('node', ['packages/server/dist/index.js'], {
+const serverProcess = spawn('node', ['packages/server/dist/index.cjs'], {
   stdio: ['ignore', 'inherit', 'inherit'],
 });
 

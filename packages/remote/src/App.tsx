@@ -9,7 +9,7 @@ import {
   IconSkipForward,
   IconVolume,
   IconVolumeMute,
-  IconFullscreen,
+  IconTheater,
   IconFastForward,
   IconPower,
 } from './icons';
@@ -121,66 +121,42 @@ function getAnimeTheme(title: string = '', series: string = ''): AnimeTheme | nu
   return null;
 }
 
-function DragonBallSphere({ size = 36 }: { size?: number }) {
+function DragonBallSphere({ onActivateKi }: { onActivateKi: () => void }) {
   return (
-    <div
-      title="Esfera del Dragón de 4 estrellas (Toca para activar Ki)"
+    <button
+      type="button"
+      className="dragon-ball-sphere"
+      aria-label="Activar efecto de Ki"
+      title="Esfera del Dragón de 4 estrellas"
       onClick={() => {
+        onActivateKi();
         if (navigator.vibrate) {
           navigator.vibrate([40, 60, 40]);
         }
       }}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        position: 'relative',
-        cursor: 'pointer',
-        flexShrink: 0,
-        boxShadow: '0 0 18px rgba(245, 158, 11, 0.85), inset 0 -3px 8px rgba(180, 83, 9, 0.9)',
-        background: 'radial-gradient(circle at 35% 30%, #fef08a 0%, #f59e0b 50%, #b45309 95%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        userSelect: 'none',
-      }}
     >
-      {/* 4 ruby stars arranged cleanly in diamond formation */}
-      <svg width={size * 0.72} height={size * 0.72} viewBox="0 0 100 100">
+      <svg className="dragon-ball-stars" viewBox="0 0 48 48" aria-hidden="true">
         <defs>
-          <polygon
-            id="db-star"
-            points="0,-6.5 1.9,-2.1 6.5,-1.5 3.2,1.8 3.9,6.4 0,4.2 -3.9,6.4 -3.2,1.8 -6.5,-1.5 -1.9,-2.1"
-            fill="#dc2626"
-            stroke="#991b1b"
-            strokeWidth="0.5"
+          <radialGradient id="dragon-ball-glass" cx="32%" cy="26%" r="78%">
+            <stop offset="0%" stopColor="#fff5b1" />
+            <stop offset="42%" stopColor="#ffb21a" />
+            <stop offset="100%" stopColor="#b45309" />
+          </radialGradient>
+          <path
+            id="dragon-ball-star"
+            d="M0-5.7 1.7-1.8 5.9-1.3 2.8 1.5 3.7 5.7 0 3.5-3.7 5.7-2.8 1.5-5.9-1.3-1.7-1.8Z"
           />
         </defs>
-        {/* Top Star */}
-        <use href="#db-star" transform="translate(50, 32)" />
-        {/* Bottom Star */}
-        <use href="#db-star" transform="translate(50, 68)" />
-        {/* Left Star */}
-        <use href="#db-star" transform="translate(32, 50)" />
-        {/* Right Star */}
-        <use href="#db-star" transform="translate(68, 50)" />
+        <circle cx="24" cy="24" r="22" fill="url(#dragon-ball-glass)" />
+        <g fill="#c91f27" stroke="#8c1018" strokeWidth=".55" strokeLinejoin="round">
+          <use href="#dragon-ball-star" transform="translate(24 12)" />
+          <use href="#dragon-ball-star" transform="translate(12 24)" />
+          <use href="#dragon-ball-star" transform="translate(36 24)" />
+          <use href="#dragon-ball-star" transform="translate(24 36)" />
+        </g>
       </svg>
-      {/* Specular gloss highlight */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '10%',
-          left: '16%',
-          width: '32%',
-          height: '24%',
-          borderRadius: '50%',
-          background: 'rgba(255, 255, 255, 0.8)',
-          filter: 'blur(1px)',
-          transform: 'rotate(-30deg)',
-          pointerEvents: 'none',
-        }}
-      />
-    </div>
+      <span className="dragon-ball-gloss" aria-hidden="true" />
+    </button>
   );
 }
 
@@ -188,6 +164,7 @@ export function App() {
   const [serverConnected, setServerConnected] = useState(false);
   const [extensionConnected, setExtensionConnected] = useState(false);
   const [showShutdownModal, setShowShutdownModal] = useState(false);
+  const [kiBurst, setKiBurst] = useState(false);
   const [state, setState] = useState<PlayerState>({
     playing: false,
     title: 'Esperando video...',
@@ -196,11 +173,13 @@ export function App() {
     volume: 1,
     muted: false,
     service: 'generic',
+    cinemaMode: false,
     skipButton: { visible: false, text: 'Omitir intro' },
   });
 
   const wsRef = useRef<WebSocket | null>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
+  const kiBurstTimerRef = useRef<number | null>(null);
 
   // Seekbar interactive state
   const [isDragging, setIsDragging] = useState(false);
@@ -332,11 +311,30 @@ export function App() {
 
   const isSkipVisible = !!state.skipButton?.visible;
   const skipText = state.skipButton?.text || 'Omitir intro';
+  const isCinemaMode = state.cinemaMode ?? state.fullscreen ?? false;
+
+  const triggerKiBurst = () => {
+    setKiBurst(true);
+    if (kiBurstTimerRef.current !== null) {
+      window.clearTimeout(kiBurstTimerRef.current);
+    }
+    kiBurstTimerRef.current = window.setTimeout(() => setKiBurst(false), 850);
+  };
+
+  const handleSkipIntro = () => {
+    sendCommand('skipIntro');
+    if (animeTheme?.icon === 'dragonball') triggerKiBurst();
+  };
+
+  useEffect(() => () => {
+    if (kiBurstTimerRef.current !== null) window.clearTimeout(kiBurstTimerRef.current);
+  }, []);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 48 }}>
+    <div className="remote-panel" style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 48 }}>
       {/* Header */}
       <header
+        className="remote-header"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -344,11 +342,12 @@ export function App() {
           padding: '4px 2px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: '1.45rem', fontWeight: 900, letterSpacing: '-0.5px' }}>
+        <div className="remote-brand" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="remote-logo" style={{ fontSize: '1.45rem', fontWeight: 900, letterSpacing: '-0.5px' }}>
             Vint<span style={{ color: activeAccent }}>tea</span>
           </span>
           <span
+            className="service-badge"
             style={{
               padding: '3px 8px',
               borderRadius: 6,
@@ -365,6 +364,7 @@ export function App() {
           </span>
           {animeTheme && (
             <span
+              className="anime-badge"
               style={{
                 padding: '3px 8px',
                 borderRadius: 6,
@@ -382,7 +382,7 @@ export function App() {
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="remote-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {/* Quick Power Off button right in header */}
           <button
             onClick={() => setShowShutdownModal(true)}
@@ -443,6 +443,12 @@ export function App() {
         </div>
       </header>
 
+      {kiBurst && animeTheme?.icon === 'dragonball' && (
+        <div className="ki-burst-overlay" aria-hidden="true">
+          <span>KI</span>
+        </div>
+      )}
+
       {/* Floating Shutdown Alert Banner (if active) */}
       {state.shutdownSecondsLeft !== undefined && state.shutdownSecondsLeft > 0 && (
         <div
@@ -482,6 +488,7 @@ export function App() {
 
       {/* Main Now-Playing Media Card with Cover / Thumbnail */}
       <div
+        className="now-playing-card"
         style={{
           background: 'var(--card)',
           border: `1px solid ${animeTheme ? `${activeAccent}44` : 'var(--card-border)'}`,
@@ -512,10 +519,11 @@ export function App() {
           />
         )}
 
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: 14 }}>
+        <div className="now-playing-main" style={{ position: 'relative', zIndex: 1, display: 'flex', gap: 14 }}>
           {/* Episode / Video Cover Art */}
           {state.thumbnail ? (
             <div
+              className="now-playing-thumbnail"
               style={{
                 width: 90,
                 height: 90,
@@ -540,6 +548,7 @@ export function App() {
             </div>
           ) : (
             <div
+              className="now-playing-thumbnail now-playing-placeholder"
               style={{
                 width: 72,
                 height: 72,
@@ -558,10 +567,11 @@ export function App() {
           )}
 
           {/* Titles & Metadata */}
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0, flex: 1, gap: 2 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+          <div className="now-playing-content" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0, flex: 1, gap: 2 }}>
+            <div className="anime-heading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
               {state.series && (
                 <div
+                  className="series-title"
                   style={{
                     fontSize: '0.8rem',
                     fontWeight: 800,
@@ -577,7 +587,7 @@ export function App() {
                 </div>
               )}
               {/* Dragon Ball Themed 4-Star Sphere Easter Egg */}
-              {animeTheme?.icon === 'dragonball' && <DragonBallSphere size={36} />}
+              {animeTheme?.icon === 'dragonball' && <DragonBallSphere onActivateKi={triggerKiBurst} />}
             </div>
 
             {/* Dedicated Season / Saga Badge (ej. Saga de Pilaf en Dragon Ball 1986) */}
@@ -719,6 +729,7 @@ export function App() {
           </div>
 
           <div
+            className="timeline-time-row"
             style={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -823,7 +834,8 @@ export function App() {
       {/* Dynamic Persistent Omitir Intro / Resumen Button */}
       <div style={{ width: '100%' }}>
         <button
-          onClick={() => sendCommand('skipIntro')}
+          className="skip-intro-button"
+          onClick={handleSkipIntro}
           disabled={!isSkipVisible}
           style={{
             width: '100%',
@@ -850,20 +862,21 @@ export function App() {
               : 'none',
           }}
         >
-          <IconFastForward
-            size={20}
-            color={isSkipVisible ? activeAccent : '#6b7280'}
-          />
-          <span>{skipText}</span>
+          <span className="skip-intro-content">
+            <IconFastForward
+              size={20}
+              color={isSkipVisible ? activeAccent : '#6b7280'}
+            />
+            <span>{skipText}</span>
+          </span>
           {isSkipVisible && (
-            <span
+            <span className="skip-available-badge"
               style={{
                 fontSize: '0.65rem',
                 padding: '2px 6px',
                 borderRadius: 4,
                 background: activeAccent,
                 color: '#fff',
-                marginLeft: 4,
                 fontWeight: 800,
               }}
             >
@@ -953,17 +966,18 @@ export function App() {
           </button>
 
           <button
-            onClick={() => sendCommand('toggleFullscreen')}
+            className="cinema-mode-button"
+            onClick={() => sendCommand('toggleCinemaMode')}
             style={{
               ...btnStyle,
-              background: state.fullscreen ? 'rgba(99, 102, 241, 0.25)' : '#1d2232',
-              borderColor: state.fullscreen ? '#818cf8' : 'var(--card-border)',
-              boxShadow: state.fullscreen ? '0 0 16px rgba(99, 102, 241, 0.4)' : 'none',
+              background: isCinemaMode ? 'rgba(99, 102, 241, 0.25)' : '#1d2232',
+              borderColor: isCinemaMode ? '#818cf8' : 'var(--card-border)',
+              boxShadow: isCinemaMode ? '0 0 16px rgba(99, 102, 241, 0.4)' : 'none',
             }}
           >
-            <IconFullscreen size={22} color={state.fullscreen ? '#818cf8' : '#f3f4f6'} />
-            <span style={{ ...btnLabelStyle, color: state.fullscreen ? '#818cf8' : 'var(--text-muted)' }}>
-              {state.fullscreen ? 'Salir pantalla' : 'Pantalla compl.'}
+            <IconTheater size={22} color={isCinemaMode ? '#818cf8' : '#f3f4f6'} />
+            <span style={{ ...btnLabelStyle, color: isCinemaMode ? '#818cf8' : 'var(--text-muted)' }}>
+              {isCinemaMode ? 'Salir modo cine' : 'Modo cine'}
             </span>
           </button>
         </div>

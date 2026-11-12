@@ -1,5 +1,5 @@
 import type { SiteAdapter, PlayerState } from './types';
-import { toggleReliableFullscreen, isFullscreenActive } from './utils';
+import { toggleCinemaMode as applyCinemaMode, isCinemaModeActive } from './utils';
 
 export class GenericAdapter implements SiteAdapter {
   id = 'generic';
@@ -72,19 +72,14 @@ export class GenericAdapter implements SiteAdapter {
     video.muted = !video.muted;
   }
 
-  toggleFullscreen(forceState?: number): void {
+  toggleCinemaMode(forceState?: number): void {
     const video = this.getVideoElement();
-    toggleReliableFullscreen(
-      video,
-      video?.parentElement,
-      [
-        'button[aria-label*="fullscreen" i]',
-        'button[aria-label*="pantalla completa" i]',
-        'button[title*="fullscreen" i]',
-        'button[title*="pantalla completa" i]',
-      ],
-      forceState
-    );
+    applyCinemaMode(video, video?.parentElement, forceState);
+  }
+
+  /** @deprecated Retained for older extension messages. */
+  toggleFullscreen(forceState?: number): void {
+    this.toggleCinemaMode(forceState);
   }
 
   nextEpisode(): void {
@@ -126,7 +121,7 @@ export class GenericAdapter implements SiteAdapter {
       duration: Math.round(video.duration || 0),
       volume: video.muted ? 0 : video.volume,
       muted: video.muted,
-      fullscreen: isFullscreenActive(),
+      cinemaMode: isCinemaModeActive(),
       service: 'generic',
       playbackRate: video.playbackRate,
       thumbnail: poster || undefined,

@@ -5,8 +5,8 @@ import {
   isSkipButtonTrulyActive,
   clickElementSafely,
   wakePlayerControls,
-  toggleReliableFullscreen,
-  isFullscreenActive,
+  toggleCinemaMode as applyCinemaMode,
+  isCinemaModeActive,
 } from './utils';
 import { GenericAdapter } from './generic';
 
@@ -56,36 +56,19 @@ export class CrunchyrollAdapter extends GenericAdapter implements SiteAdapter {
     }
   }
 
-  /**
-   * Fixed Crunchyroll true fullscreen:
-   * Uses toggleReliableFullscreen which combines window-level OS fullscreen,
-   * CSS ancestor untrapping (100vw x 100vh), native button clicks and keyboard shortcuts.
-   */
-  override toggleFullscreen(forceState?: number): void {
+  /** Expands the player like a theater layout without changing browser fullscreen. */
+  override toggleCinemaMode(forceState?: number): void {
     const video = document.querySelector<HTMLVideoElement>('video');
     const playerContainer =
       document.querySelector<HTMLElement>(
         '#vilos, #vilos-player, .velocity-player-package, #player0, [data-testid="player-wrapper"], [class*="video-player-wrapper" i], div[class*="player-wrapper"]'
       ) || video?.parentElement;
 
-    toggleReliableFullscreen(
-      video,
-      playerContainer,
-      [
-        '[data-testid="fullscreen-button"]',
-        '[data-testid="fullscreen_button"]',
-        'button[data-t="fullscreen-btn"]',
-        'button[title*="pantalla completa" i]',
-        'button[title*="fullscreen" i]',
-        'button[aria-label*="pantalla completa" i]',
-        'button[aria-label*="fullscreen" i]',
-        'button[aria-label*="full screen" i]',
-        '.fullscreen-icon',
-        '[class*="fullscreen-button" i]',
-        '[class*="fullscreen_button" i]',
-      ],
-      forceState
-    );
+    applyCinemaMode(video, playerContainer, forceState);
+  }
+
+  override toggleFullscreen(forceState?: number): void {
+    this.toggleCinemaMode(forceState);
   }
 
   override nextEpisode(): void {
@@ -392,7 +375,7 @@ export class CrunchyrollAdapter extends GenericAdapter implements SiteAdapter {
       title: episodeTitle
         ? `${seriesTitle ? seriesTitle + ' - ' : ''}${episodeTitle}`
         : seriesTitle || baseState.title,
-      fullscreen: isFullscreenActive(),
+      cinemaMode: isCinemaModeActive(),
       thumbnail: currentThumb,
       nextPreview: nextPreview || baseState.nextPreview,
       prevPreview: prevPreview || baseState.prevPreview,
