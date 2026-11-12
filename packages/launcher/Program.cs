@@ -101,6 +101,8 @@ namespace VintteaLauncher
         private Button btnShowQR;
         private Button btnExtensionFolder;
         private Button btnCheckUpdates;
+        private Button btnOpenReleases;
+        private Panel updateCard;
         private Label lblUpdateStatus;
         private Label lblUpdateProgress;
         private ProgressBar updateProgressBar;
@@ -265,7 +267,7 @@ namespace VintteaLauncher
             serverCard.Controls.Add(btnExtensionFolder);
 
             // 4. Updates & GitHub Card
-            Panel updateCard = CreateCardPanel(16, 480, 590, 132);
+            updateCard = CreateCardPanel(16, 480, 590, 105);
             mainContainer.Controls.Add(updateCard);
 
             Label lblUpdateTitle = new Label();
@@ -296,19 +298,19 @@ namespace VintteaLauncher
             updateProgressBar.Visible = false;
             updateCard.Controls.Add(updateProgressBar);
 
-            btnCheckUpdates = CreateButton("🔄 Buscar Actualizaciones", 16, 86, 272, 38, Color.FromArgb(32, 38, 58), AccentIndigo);
+            btnCheckUpdates = CreateButton("🔄 Buscar Actualizaciones", 16, 56, 272, 38, Color.FromArgb(32, 38, 58), AccentIndigo);
             btnCheckUpdates.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
             btnCheckUpdates.Click += (s, e) => CheckForUpdates(true);
             updateCard.Controls.Add(btnCheckUpdates);
 
-            Button btnOpenReleases = CreateButton("📦 Ver Releases en GitHub", 300, 86, 274, 38, Color.FromArgb(32, 38, 58), TextPrimary);
+            btnOpenReleases = CreateButton("📦 Ver Releases en GitHub", 300, 56, 274, 38, Color.FromArgb(32, 38, 58), TextPrimary);
             btnOpenReleases.Font = new Font("Segoe UI", 9f, FontStyle.Regular);
             btnOpenReleases.Click += (s, e) => Process.Start("https://github.com/" + GitHubRepo + "/releases");
             updateCard.Controls.Add(btnOpenReleases);
 
             // 5. Real-Time Activity Log Box
             txtLog = new TextBox();
-            txtLog.Location = new Point(16, 622);
+            txtLog.Location = new Point(16, 595);
             txtLog.Size = new Size(590, 108);
             txtLog.Multiline = true;
             txtLog.ReadOnly = true;
@@ -794,10 +796,45 @@ namespace VintteaLauncher
         // ==========================================
         // 3. ACTUALIZACIONES DESDE GITHUB RELEASES
         // ==========================================
+        private void SetUpdatePanelExpanded(bool expanded)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action<bool>(SetUpdatePanelExpanded), expanded);
+                return;
+            }
+
+            if (expanded)
+            {
+                updateCard.Height = 154;
+                lblUpdateProgress.Location = new Point(16, 54);
+                lblUpdateProgress.Size = new Size(558, 20);
+                updateProgressBar.Location = new Point(16, 82);
+                updateProgressBar.Size = new Size(558, 14);
+                btnCheckUpdates.Location = new Point(16, 106);
+                btnOpenReleases.Location = new Point(300, 106);
+                txtLog.Location = new Point(16, 644);
+                txtLog.Size = new Size(590, 90);
+                return;
+            }
+
+            updateCard.Height = 105;
+            lblUpdateProgress.Visible = false;
+            updateProgressBar.Visible = false;
+            updateProgressBar.Style = ProgressBarStyle.Continuous;
+            updateProgressBar.Value = 0;
+            btnCheckUpdates.Location = new Point(16, 56);
+            btnOpenReleases.Location = new Point(300, 56);
+            txtLog.Location = new Point(16, 595);
+            txtLog.Size = new Size(590, 108);
+        }
+
         private void CheckForUpdates(bool isManual)
         {
             btnCheckUpdates.Enabled = false;
             btnCheckUpdates.Text = "Buscando...";
+            SetUpdatePanelExpanded(true);
+            ReportUpdateProgress("Buscando actualizaciones...", -1);
             Log("Consultando releases en GitHub: " + GitHubRepo + "...");
 
             ThreadPool.QueueUserWorkItem((st) =>
@@ -826,6 +863,7 @@ namespace VintteaLauncher
                                 Log("No se encontraron releases publicadas aún en GitHub.");
                                 if (isManual) MessageBox.Show("No se encontraron versiones publicadas en GitHub.", "Vinttea", MessageBoxButtons.OK, MessageBoxIcon.Information);
                                 ResetUpdateBtn();
+                                SetUpdatePanelExpanded(false);
                             }));
                             return;
                         }
@@ -861,6 +899,7 @@ namespace VintteaLauncher
                                         MessageBox.Show("La release no tiene un archivo de actualización descargable.", "Actualización de Vinttea", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                                     }
                                     ResetUpdateBtn();
+                                    SetUpdatePanelExpanded(false);
                                 }
                             }));
                         }
@@ -871,6 +910,7 @@ namespace VintteaLauncher
                                 Log("Vinttea ya está actualizado en la versión más reciente (v" + displayedVersion + ").");
                                 if (isManual) MessageBox.Show("Vinttea ya está en la versión más reciente (v" + displayedVersion + ").", "Vinttea", MessageBoxButtons.OK, MessageBoxIcon.Information);
                                 ResetUpdateBtn();
+                                SetUpdatePanelExpanded(false);
                             }));
                         }
                     }
@@ -882,6 +922,7 @@ namespace VintteaLauncher
                         Log("No se pudo verificar actualizaciones: " + ex.Message);
                         if (isManual) MessageBox.Show("No se pudo conectar con GitHub: " + ex.Message, "Vinttea", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         ResetUpdateBtn();
+                        SetUpdatePanelExpanded(false);
                     }));
                 }
             });
@@ -987,6 +1028,7 @@ namespace VintteaLauncher
         private void InstallUpdate(string downloadUrl, string newVersion)
         {
             updateInProgress = true;
+            SetUpdatePanelExpanded(true);
             btnCheckUpdates.Enabled = false;
             btnCheckUpdates.Text = "Actualizando...";
             ReportUpdateProgress("Preparando la descarga...", 0);
@@ -1052,6 +1094,7 @@ namespace VintteaLauncher
                     ReportUpdateProgress("Listo. Reiniciá Vinttea cuando quieras aplicar los cambios.", 100);
                     updateInProgress = false;
                     Invoke(new Action(ResetUpdateBtn));
+                    Invoke(new Action(() => SetUpdatePanelExpanded(false)));
                 }
                 catch (Exception ex)
                 {
@@ -1064,6 +1107,7 @@ namespace VintteaLauncher
                             updateProgressBar.Visible = false;
                             lblUpdateProgress.Visible = false;
                             ResetUpdateBtn();
+                            SetUpdatePanelExpanded(false);
                             MessageBox.Show("Hubo un error al aplicar la actualización: " + ex.Message, "Vinttea", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         }));
                     }
