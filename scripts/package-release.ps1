@@ -208,7 +208,9 @@ try {
         "packages/shared/package.json",
         "packages/extension/package.json"
     )) {
-        $entry = $archive.GetEntry($relativePath)
+        $entry = $archive.Entries | Where-Object {
+            $_.FullName.Replace('\', '/') -eq $relativePath
+        } | Select-Object -First 1
         if ($null -eq $entry) {
             throw "Falta $relativePath dentro del ZIP de release."
         }
