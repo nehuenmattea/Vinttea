@@ -854,7 +854,6 @@ namespace VintteaLauncher
                         Match tagMatch = Regex.Match(json, "\"tag_name\":\"([^\"]+)\"");
                         Match nameMatch = Regex.Match(json, "\"name\":\"([^\"]+)\"");
                         Match bodyMatch = Regex.Match(json, "\"body\":\"([^\"]+)\"");
-                        Match zipMatch = Regex.Match(json, "\"browser_download_url\":\"([^\"]+\\.zip)\"");
 
                         if (!tagMatch.Success)
                         {
@@ -868,6 +867,12 @@ namespace VintteaLauncher
                         }
 
                         string remoteTag = tagMatch.Groups[1].Value.TrimStart('v', 'V');
+                        string releaseTag = tagMatch.Groups[1].Value;
+                        string expectedZipName = "Vinttea-" + releaseTag + "-Windows.zip";
+                        Match zipMatch = Regex.Match(
+                            json,
+                            "\"name\":\"" + Regex.Escape(expectedZipName) + "\"[\\s\\S]*?\"browser_download_url\":\"([^\"]+\\.zip)\""
+                        );
                         string releaseName = nameMatch.Success ? nameMatch.Groups[1].Value : remoteTag;
                         string releaseBody = bodyMatch.Success ? Regex.Unescape(bodyMatch.Groups[1].Value) : "Mejoras y correcciones.";
                         string downloadUrl = zipMatch.Success ? zipMatch.Groups[1].Value : null;
