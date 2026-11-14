@@ -16,6 +16,7 @@ import {
   type CommandMessage,
   type StateMessage,
   type StatusMessage,
+  type BatteryState,
 } from '@vinttea/shared';
 
 // Helper to get local network IP
@@ -37,6 +38,66 @@ const server = fastify({ logger: true });
 const extensionClients = new Set<WebSocket>();
 const remoteClients = new Set<WebSocket>();
 let lastKnownState: PlayerState | null = null;
+
+// PC Master Volume & Battery State
+let currentBattery: BatteryState | undefined = undefined;
+
+function handlePcVolumeDelta(delta: number = 0.05) {
+  if (process.platform !== 'win32') return;
+  const steps = Math.max(1, Math.min(10, Math.round(Math.abs(delta) >= 1 ? Math.abs(delta) : Math.abs(delta) * 20)));
+  const charCode = delta > 0 ? 175 : 174;
+  const script = `(New-Object -ComObject WScript.Shell).SendKeys([string][char]${charCode} * ${steps})`;
+  exec(`powershell -NoProfile -Command "${script}"`, () => {});
+}
+
+function handleTogglePcMute() {
+  if (process.platform !== 'win32') return;
+  exec('powershell -NoProfile -Command "(New-Object -ComObject WScript.Shell).SendKeys([char]173)"', () => {});
+}
+
+function updateBatteryStatus(): Promise<BatteryState | undefined> {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') {
+      return resolve(undefined);
+    }
+    const cmd =
+      'powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $p=[System.Windows.Forms.SystemInformation]::PowerStatus; [int]($p.BatteryLifePercent*100); $p.PowerLineStatus; $p.BatteryChargeStatus"';
+    exec(cmd, { timeout: 4000 }, (err, stdout) => {
+      if (err || !stdout) {
+        return resolve(currentBattery);
+      }
+      try {
+        const lines = stdout
+          .trim()
+          .split(/\r?\n/)
+          .map((l) => l.trim())
+          .filter(Boolean);
+        if (lines.length >= 3) {
+          const percent = parseInt(lines[0], 10);
+          const powerLine = lines[1];
+          const chargeStatus = lines[2];
+          const hasBattery =
+            !chargeStatus.toLowerCase().includes('nosystembattery') && !isNaN(percent) && percent >= 0;
+          currentBattery = {
+            hasBattery,
+            percent: isNaN(percent) ? 0 : Math.max(0, Math.min(100, percent)),
+            charging: powerLine.toLowerCase() === 'online',
+          };
+          if (lastKnownState) {
+            lastKnownState = {
+              ...lastKnownState,
+              battery: currentBattery,
+            };
+            broadcastToRemotes({ type: 'state', state: lastKnownState });
+          }
+        }
+      } catch {
+        // keep existing
+      }
+      resolve(currentBattery);
+    });
+  });
+}
 
 // Shutdown PC state & timer management
 let shutdownInterval: NodeJS.Timeout | null = null;
@@ -247,7 +308,13 @@ export async function startServer(port: number = DEFAULT_PORT) {
 
           // If we have cached state, send it
           if (lastKnownState) {
-            const stateMsg: StateMessage = { type: 'state', state: lastKnownState };
+            const stateMsg: StateMessage = {
+              type: 'state',
+              state: {
+                ...lastKnownState,
+                battery: currentBattery,
+              },
+            };
             socket.send(JSON.stringify(stateMsg));
           }
 
@@ -287,6 +354,12 @@ export async function startServer(port: number = DEFAULT_PORT) {
               } else if (msg.action === 'cancelShutdown') {
                 handleCancelShutdown();
                 break;
+              } else if (msg.action === 'pcVolumeDelta') {
+                handlePcVolumeDelta(msg.value !== undefined ? msg.value : 0.05);
+                break;
+              } else if (msg.action === 'togglePcMute') {
+                handleTogglePcMute();
+                break;
               }
 
               // Forward multimedia commands to extension(s)
@@ -297,6 +370,7 @@ export async function startServer(port: number = DEFAULT_PORT) {
             case 'state': {
               lastKnownState = {
                 ...msg.state,
+                battery: currentBattery,
                 shutdownSecondsLeft: shutdownSecondsRemaining > 0 ? shutdownSecondsRemaining : undefined,
               };
               // Forward updated playback state to all remote controls
@@ -354,6 +428,13 @@ export async function startServer(port: number = DEFAULT_PORT) {
 
   try {
     await server.listen({ port, host: '0.0.0.0' });
+
+    // Poll battery status on startup and regularly
+    updateBatteryStatus().catch(() => {});
+    setInterval(() => {
+      updateBatteryStatus().catch(() => {});
+    }, 25000);
+
     const localIp = getLocalNetworkIp();
     const localUrl = `http://localhost:${port}`;
     const networkUrl = `http://${localIp}:${port}`;

@@ -4,6 +4,12 @@ export interface EpisodePreview {
   thumbnail?: string;
 }
 
+export interface BatteryState {
+  hasBattery: boolean;
+  percent: number;      // 0 - 100
+  charging: boolean;
+}
+
 /**
  * Player state representing current playback in the active streaming tab.
  */
@@ -15,8 +21,11 @@ export interface PlayerState {
   episode?: string;      // "T1:E3 - Título" o "Episodio 24"
   position: number;     // seconds
   duration: number;     // seconds
-  volume: number;       // 0.0 to 1.0
-  muted: boolean;
+  volume: number;       // 0.0 to 1.0 (reproductor web)
+  muted: boolean;       // reproductor web
+  pcVolume?: number;    // 0.0 to 1.0 (volumen maestro del sistema PC)
+  pcMuted?: boolean;    // silenciado maestro en PC
+  battery?: BatteryState; // Estado de batería de la PC si aplica
   fullscreen?: boolean;
   service?: 'youtube' | 'youtubemusic' | 'netflix' | 'crunchyroll' | 'prime' | 'generic' | string;
   playbackRate?: number;
@@ -43,6 +52,9 @@ export type CommandAction =
   | 'setVolume'         // target volume (0.0 to 1.0)
   | 'volumeDelta'       // volume change (+0.1, -0.1)
   | 'toggleMute'
+  | 'setPcVolume'       // target PC master volume (0.0 to 1.0)
+  | 'pcVolumeDelta'     // change PC master volume (+0.05, -0.05)
+  | 'togglePcMute'      // mute / unmute Windows master audio
   | 'toggleFullscreen'
   | 'nextEpisode'
   | 'prevEpisode'

@@ -166,84 +166,138 @@ export function isElementVisible(el: HTMLElement): boolean {
   return rect.width > 0 && rect.height > 0;
 }
 
+function ensureFsStyle(): void {
+  if (document.getElementById('vinttea-fs-style')) return;
+  const style = document.createElement('style');
+  style.id = 'vinttea-fs-style';
+  style.textContent = `
+    html.vinttea-fs-body-lock,
+    body.vinttea-fs-body-lock {
+      overflow: hidden !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      background: #000 !important;
+    }
+
+    .vinttea-fs-ancestor {
+      transform: none !important;
+      filter: none !important;
+      perspective: none !important;
+      contain: none !important;
+      clip-path: none !important;
+      overflow: visible !important;
+      max-width: none !important;
+      max-height: none !important;
+    }
+
+    video.vinttea-video-fullscreen,
+    .vinttea-video-fullscreen,
+    .vinttea-player-fullscreen {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      max-width: 100vw !important;
+      max-height: 100vh !important;
+      object-fit: contain !important;
+      background: #000 !important;
+      z-index: 2147483640 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: none !important;
+    }
+
+    .vinttea-player-fullscreen video {
+      width: 100% !important;
+      height: 100% !important;
+      max-width: 100vw !important;
+      max-height: 100vh !important;
+      object-fit: contain !important;
+    }
+
+    .vinttea-player-fullscreen canvas,
+    .vinttea-player-fullscreen [class*="captions" i],
+    .vinttea-player-fullscreen [class*="subtitles" i],
+    .vinttea-player-fullscreen [class*="renderer" i] {
+      z-index: 2147483645 !important;
+    }
+  `;
+  (document.head || document.documentElement).appendChild(style);
+}
+
 export function isFullscreenActive(): boolean {
   return Boolean(
     document.fullscreenElement ||
     (document as Document & { webkitFullscreenElement?: Element | null }).webkitFullscreenElement ||
-    document.querySelector('#movie_player.ytp-fullscreen, #vilos .fullscreen, .watch-video--player-view.fullscreen')
+    document.querySelector(
+      '.vinttea-video-fullscreen, .vinttea-player-fullscreen, #movie_player.ytp-fullscreen, #vilos .fullscreen, .watch-video--player-view.fullscreen'
+    )
   );
 }
 
-function removeLegacyVirtualFullscreen(): void {
-  document.getElementById('vinttea-fs-style')?.remove();
-  document.querySelectorAll(
-    '.vinttea-virtual-fullscreen, .vinttea-video-fullscreen, .vinttea-fs-ancestor'
-  ).forEach((el) => {
-    el.classList.remove('vinttea-virtual-fullscreen', 'vinttea-video-fullscreen', 'vinttea-fs-ancestor');
+function removeVirtualFullscreen(): void {
+  document.querySelectorAll('.vinttea-video-fullscreen, .vinttea-player-fullscreen, .vinttea-fs-ancestor').forEach((el) => {
+    el.classList.remove('vinttea-video-fullscreen', 'vinttea-player-fullscreen', 'vinttea-fs-ancestor');
   });
   document.documentElement.classList.remove('vinttea-fs-body-lock');
   document.body?.classList.remove('vinttea-fs-body-lock');
 }
 
-function findPlayerFullscreenButton(
-  selectors: string[],
-  player: HTMLElement | null | undefined
-): HTMLElement | null {
-  const roots: ParentNode[] = player && player.isConnected ? [player, document] : [document];
-  for (const root of roots) {
-    for (const selector of selectors) {
-      for (const el of root.querySelectorAll<HTMLElement>(selector)) {
-        if (el.getAttribute('role') !== 'button' && el.tagName !== 'BUTTON') continue;
-        if (el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true') continue;
-        const style = window.getComputedStyle(el);
-        const rect = el.getBoundingClientRect();
-        if (style.display === 'none' || style.visibility === 'hidden' || rect.width === 0 || rect.height === 0) continue;
-        return el;
-      }
-    }
-  }
-  return null;
-}
-
-/** Toggles the streaming site's own fullscreen control, scoped to its media player. */
+/** Toggles true edge-to-edge fullscreen showing strictly the video covering the screen. */
 export function toggleReliableFullscreen(
   videoEl: HTMLVideoElement | null,
   containerEl?: HTMLElement | null,
   fsBtnSelectors: string[] = [],
   forceState?: number // 1: enter, 0: exit
 ): void {
-  // Clean up the former CSS-only fullscreen mode from pages kept open across updates.
-  removeLegacyVirtualFullscreen();
+  ensureFsStyle();
   const isCurrentlyFs = isFullscreenActive();
   const shouldEnter = forceState !== undefined ? forceState === 1 : !isCurrentlyFs;
-  if (shouldEnter === isCurrentlyFs) return;
-
-  wakePlayerControls(containerEl || videoEl || undefined);
-  const nativeButton = findPlayerFullscreenButton(fsBtnSelectors, containerEl);
-  if (nativeButton) {
-    // Fullscreen buttons toggle state; dispatch exactly one click so we don't
-    // enter fullscreen and immediately undo it with a synthetic second click.
-    nativeButton.click();
-    return;
-  }
 
   if (!shouldEnter) {
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    else if ((document as Document & { webkitFullscreenElement?: Element | null }).webkitFullscreenElement) {
+    removeVirtualFullscreen();
+    simulateKey('Escape', 'Escape', 27);
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else if ((document as Document & { webkitFullscreenElement?: Element | null }).webkitFullscreenElement) {
       (document as Document & { webkitExitFullscreen?: () => void }).webkitExitFullscreen?.();
     }
+    chrome.runtime.sendMessage({ type: 'vinttea_window_fullscreen', fullscreen: false }).catch(() => {});
     return;
   }
 
-  const target = containerEl || videoEl?.parentElement || videoEl;
-  if (!target) return;
+  // 1. Enter Edge-to-Edge DOM Fullscreen (breaks out of all containers)
+  const targetEl = containerEl || videoEl || document.querySelector<HTMLVideoElement>('video');
+  if (targetEl) {
+    if (containerEl) {
+      containerEl.classList.add('vinttea-player-fullscreen');
+    } else {
+      targetEl.classList.add('vinttea-video-fullscreen');
+    }
 
-  const fullscreenTarget = target as HTMLElement & {
-    webkitRequestFullscreen?: () => void;
-  };
-  if (fullscreenTarget.requestFullscreen) {
-    fullscreenTarget.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
-  } else {
-    fullscreenTarget.webkitRequestFullscreen?.();
+    let ancestor = targetEl.parentElement;
+    while (ancestor && ancestor !== document.body && ancestor !== document.documentElement) {
+      ancestor.classList.add('vinttea-fs-ancestor');
+      ancestor = ancestor.parentElement;
+    }
+
+    document.documentElement.classList.add('vinttea-fs-body-lock');
+    document.body?.classList.add('vinttea-fs-body-lock');
   }
+
+  // 2. Also simulate player's internal button / key
+  wakePlayerControls(containerEl || videoEl || undefined);
+  if (fsBtnSelectors.length > 0) {
+    const btn = findInteractiveButton(fsBtnSelectors, true);
+    if (btn) {
+      clickElementSafely(btn);
+    }
+  }
+  simulateKey('f', 'KeyF', 70);
+
+  // 3. Request window-level fullscreen from background script
+  chrome.runtime.sendMessage({ type: 'vinttea_window_fullscreen', fullscreen: true }).catch(() => {});
 }

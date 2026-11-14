@@ -160,12 +160,40 @@ export default defineBackground(() => {
   function handleServerMessage(msg: VintteaMessage) {
     if (msg.type === 'command') {
       const cmd = msg as CommandMessage;
+      if (cmd.action === 'toggleFullscreen') {
+        getTargetTab().then((tab) => {
+          if (tab && tab.windowId !== undefined) {
+            chrome.windows.get(tab.windowId, (win) => {
+              if (win && win.id !== undefined) {
+                const nextState = win.state === 'fullscreen' ? 'normal' : 'fullscreen';
+                chrome.windows.update(win.id, { state: nextState, focused: true }).catch(() => {});
+              }
+            });
+          }
+        });
+      }
       forwardCommandToTab(cmd.action, cmd.value);
     }
   }
 
   // Listen for messages from content scripts
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'vinttea_window_fullscreen') {
+      const windowId = sender.tab?.windowId;
+      const targetState = message.fullscreen ? 'fullscreen' : 'normal';
+      if (windowId !== undefined) {
+        chrome.windows.update(windowId, { state: targetState, focused: true }).catch(() => {});
+      } else {
+        chrome.windows.getCurrent((win) => {
+          if (win && win.id !== undefined) {
+            chrome.windows.update(win.id, { state: targetState, focused: true }).catch(() => {});
+          }
+        });
+      }
+      sendResponse({ ok: true });
+      return;
+    }
+
     if (message.type === 'vinttea_state_update') {
       const state = message.state;
       const hasMediaContent = state && (state.playing || (state.duration && state.duration > 0) || state.title);

@@ -578,6 +578,10 @@ namespace VintteaLauncher
 
             string nodePath = FindExecutable("node.exe") ?? "node";
             string serverDist = Path.Combine(appDir, @"packages\server\dist\index.cjs");
+            if (!File.Exists(serverDist))
+            {
+                serverDist = Path.Combine(appDir, @"packages\server\dist\index.js");
+            }
 
             if (!File.Exists(serverDist))
             {
