@@ -163,12 +163,8 @@ export default defineBackground(() => {
       if (cmd.action === 'toggleFullscreen') {
         getTargetTab().then((tab) => {
           if (tab && tab.windowId !== undefined) {
-            chrome.windows.get(tab.windowId, (win) => {
-              if (win && win.id !== undefined) {
-                const nextState = win.state === 'fullscreen' ? 'normal' : 'fullscreen';
-                chrome.windows.update(win.id, { state: nextState, focused: true }).catch(() => {});
-              }
-            });
+            // Focus the streaming tab window so that OS-level SendKeys 'f' targets the player
+            chrome.windows.update(tab.windowId, { focused: true }).catch(() => {});
           }
         });
       }

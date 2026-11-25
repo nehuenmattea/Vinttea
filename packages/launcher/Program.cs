@@ -10,9 +10,19 @@ using System.Threading;
 using System.Windows.Forms;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
+using System.Collections.Generic;
+using System.Web.Script.Serialization;
 
 namespace VintteaLauncher
 {
+    public class StreamingPlatform
+    {
+        public string Name { get; set; }
+        public string Url { get; set; }
+        public string Icon { get; set; }
+        public string ColorHex { get; set; }
+    }
+
     static class Program
     {
         [DllImport("user32.dll")]
@@ -84,13 +94,11 @@ namespace VintteaLauncher
 
         // UI Controls
         private Panel headerPanel;
-        private Panel reqCard;
+        private Button btnDiagnostics;
+        private Panel platformsCard;
+        private FlowLayoutPanel flowPlatforms;
+        private Button btnOpenAddPlatform;
         private Panel serverCard;
-        private Label lblNodeStatus;
-        private Label lblPnpmStatus;
-        private Label lblBuildStatus;
-        private Button btnFixReqs;
-        private Button btnCreateShortcut;
 
         private Label lblServerBadge;
         private Label lblLocalUrl;
@@ -109,6 +117,23 @@ namespace VintteaLauncher
         private TextBox txtLog;
         private string displayedVersion = CurrentVersion;
         private bool updateInProgress;
+
+        // Platform Management
+        private List<StreamingPlatform> activePlatforms = new List<StreamingPlatform>();
+
+        private readonly StreamingPlatform[] CatalogPlatforms = new StreamingPlatform[]
+        {
+            new StreamingPlatform { Name = "Crunchyroll", Url = "https://www.crunchyroll.com", Icon = "🟠", ColorHex = "#ff640a" },
+            new StreamingPlatform { Name = "YouTube", Url = "https://www.youtube.com", Icon = "🔴", ColorHex = "#ff0000" },
+            new StreamingPlatform { Name = "YouTube Music", Url = "https://music.youtube.com", Icon = "🎵", ColorHex = "#ff0033" },
+            new StreamingPlatform { Name = "Spotify", Url = "https://open.spotify.com", Icon = "🟢", ColorHex = "#1db954" },
+            new StreamingPlatform { Name = "Netflix", Url = "https://www.netflix.com", Icon = "🔴", ColorHex = "#e50914" },
+            new StreamingPlatform { Name = "Amazon Prime Video", Url = "https://www.primevideo.com", Icon = "🔵", ColorHex = "#00a8e1" },
+            new StreamingPlatform { Name = "Max (HBO Max)", Url = "https://www.max.com", Icon = "🟣", ColorHex = "#002be7" },
+            new StreamingPlatform { Name = "Disney+", Url = "https://www.disneyplus.com", Icon = "➕", ColorHex = "#113ccf" },
+            new StreamingPlatform { Name = "Twitch", Url = "https://www.twitch.tv", Icon = "🟣", ColorHex = "#9146ff" },
+            new StreamingPlatform { Name = "Apple TV+", Url = "https://tv.apple.com", Icon = "🍎", ColorHex = "#a3a3a3" }
+        };
 
         public MainForm()
         {
@@ -158,6 +183,7 @@ namespace VintteaLauncher
             // System Tray Menu & Icon
             trayMenu = new ContextMenuStrip();
             trayMenu.Items.Add("Abrir Panel de Control", null, (s, e) => RestoreFromTray());
+            trayMenu.Items.Add("Diagnóstico del Sistema...", null, (s, e) => ShowDiagnosticDialog());
             trayMenu.Items.Add("Iniciar Servidor", null, (s, e) => StartServer());
             trayMenu.Items.Add("Detener Servidor", null, (s, e) => StopServer());
             trayMenu.Items.Add("Abrir Control Web", null, (s, e) => OpenWebRemote());
@@ -194,32 +220,40 @@ namespace VintteaLauncher
             headerPanel.Paint += HeaderPanel_Paint;
             mainContainer.Controls.Add(headerPanel);
 
-            // 2. Requirements Diagnostic Card
-            reqCard = CreateCardPanel(16, 82, 590, 142);
-            mainContainer.Controls.Add(reqCard);
+            btnDiagnostics = CreateButton("✔ Diagnóstico", 355, 16, 130, 28, Color.FromArgb(32, 38, 58), AccentGreen);
+            btnDiagnostics.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            btnDiagnostics.FlatAppearance.BorderSize = 1;
+            btnDiagnostics.FlatAppearance.BorderColor = AccentGreen;
+            btnDiagnostics.Click += (s, e) => ShowDiagnosticDialog();
+            headerPanel.Controls.Add(btnDiagnostics);
 
-            Label lblReqTitle = new Label();
-            lblReqTitle.Text = "DIAGNÓSTICO DEL SISTEMA";
-            lblReqTitle.Font = new Font("Segoe UI", 8f, FontStyle.Bold);
-            lblReqTitle.ForeColor = AccentIndigo;
-            lblReqTitle.Location = new Point(14, 10);
-            lblReqTitle.AutoSize = true;
-            reqCard.Controls.Add(lblReqTitle);
+            // 2. Streaming Platforms Shortcuts Card (replaces old diagnostic card)
+            platformsCard = CreateCardPanel(16, 82, 590, 142);
+            mainContainer.Controls.Add(platformsCard);
 
-            lblNodeStatus = new Label { Location = new Point(16, 32), AutoSize = true, ForeColor = TextMuted, Text = "Node.js: Verificando..." };
-            lblPnpmStatus = new Label { Location = new Point(16, 54), AutoSize = true, ForeColor = TextMuted, Text = "pnpm: Verificando..." };
-            lblBuildStatus = new Label { Location = new Point(16, 76), AutoSize = true, ForeColor = TextMuted, Text = "Paquetes: Verificando..." };
-            reqCard.Controls.Add(lblNodeStatus);
-            reqCard.Controls.Add(lblPnpmStatus);
-            reqCard.Controls.Add(lblBuildStatus);
+            Label lblPlatformsTitle = new Label();
+            lblPlatformsTitle.Text = "ACCESOS RÁPIDOS A PLATAFORMAS";
+            lblPlatformsTitle.Font = new Font("Segoe UI", 8f, FontStyle.Bold);
+            lblPlatformsTitle.ForeColor = AccentIndigo;
+            lblPlatformsTitle.Location = new Point(14, 10);
+            lblPlatformsTitle.AutoSize = true;
+            platformsCard.Controls.Add(lblPlatformsTitle);
 
-            btnFixReqs = CreateButton("⚡ Instalar y Configurar Requisitos", 300, 30, 275, 42, AccentIndigo, Color.White);
-            btnFixReqs.Click += (s, e) => FixRequirements();
-            reqCard.Controls.Add(btnFixReqs);
+            btnOpenAddPlatform = CreateButton("➕ Agregar Plataforma", 420, 7, 156, 26, AccentIndigo, Color.White);
+            btnOpenAddPlatform.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            btnOpenAddPlatform.Click += (s, e) => ShowAddPlatformDialog();
+            platformsCard.Controls.Add(btnOpenAddPlatform);
 
-            btnCreateShortcut = CreateButton("📌 Crear acceso directo en el Escritorio", 16, 102, 558, 30, Color.FromArgb(32, 38, 58), TextPrimary);
-            btnCreateShortcut.Click += (s, e) => CreateDesktopShortcut();
-            reqCard.Controls.Add(btnCreateShortcut);
+            flowPlatforms = new FlowLayoutPanel();
+            flowPlatforms.Location = new Point(14, 38);
+            flowPlatforms.Size = new Size(562, 94);
+            flowPlatforms.AutoScroll = true;
+            flowPlatforms.WrapContents = true;
+            flowPlatforms.BackColor = Color.Transparent;
+            platformsCard.Controls.Add(flowPlatforms);
+
+            LoadPlatforms();
+            RenderPlatformTiles();
 
             // 3. Server Control Card
             serverCard = CreateCardPanel(16, 232, 590, 240);
@@ -417,18 +451,27 @@ namespace VintteaLauncher
             isPnpmInstalled = !string.IsNullOrEmpty(pnpmPath);
 
             string serverDist = Path.Combine(appDir, @"packages\server\dist\index.cjs");
+            if (!File.Exists(serverDist))
+            {
+                serverDist = Path.Combine(appDir, @"packages\server\dist\index.js");
+            }
             isProjectBuilt = File.Exists(serverDist);
 
-            lblNodeStatus.Text = isNodeInstalled ? "✔ Node.js: Instalado y listo" : "❌ Node.js: No detectado en este equipo";
-            lblNodeStatus.ForeColor = isNodeInstalled ? AccentGreen : AccentRed;
-
-            lblPnpmStatus.Text = isPnpmInstalled ? "✔ pnpm: Instalado" : "⚠ pnpm: No detectado (se usará npx pnpm)";
-            lblPnpmStatus.ForeColor = isPnpmInstalled ? AccentGreen : Color.Orange;
-
-            lblBuildStatus.Text = isProjectBuilt ? "✔ Paquetes de Vinttea: Compilados listos" : "❌ Paquetes de Vinttea: Pendiente de compilar";
-            lblBuildStatus.ForeColor = isProjectBuilt ? AccentGreen : AccentRed;
-
-            btnFixReqs.Visible = !(isNodeInstalled && isProjectBuilt);
+            if (btnDiagnostics != null)
+            {
+                if (isNodeInstalled && isProjectBuilt)
+                {
+                    btnDiagnostics.Text = "✔ Diagnóstico";
+                    btnDiagnostics.ForeColor = AccentGreen;
+                    btnDiagnostics.FlatAppearance.BorderColor = AccentGreen;
+                }
+                else
+                {
+                    btnDiagnostics.Text = "⚠️ Requisitos";
+                    btnDiagnostics.ForeColor = AccentRed;
+                    btnDiagnostics.FlatAppearance.BorderColor = AccentRed;
+                }
+            }
             btnStartStopServer.Enabled = isNodeInstalled && isProjectBuilt;
         }
 
@@ -464,9 +507,8 @@ namespace VintteaLauncher
             return null;
         }
 
-        private void FixRequirements()
+        private void FixRequirements(Action onDone = null)
         {
-            btnFixReqs.Enabled = false;
             ThreadPool.QueueUserWorkItem((state) =>
             {
                 try
@@ -511,15 +553,301 @@ namespace VintteaLauncher
                     Log("¡Verificación de requisitos completada!");
                     this.Invoke(new Action(() => {
                         CheckRequirements();
-                        btnFixReqs.Enabled = true;
+                        if (onDone != null) onDone();
                     }));
                 }
                 catch (Exception ex)
                 {
                     Log("Error configurando requisitos: " + ex.Message);
-                    this.Invoke(new Action(() => btnFixReqs.Enabled = true));
+                    this.Invoke(new Action(() => {
+                        if (onDone != null) onDone();
+                    }));
                 }
             });
+        }
+
+        // ==========================================
+        // GESTIÓN DE ACCESOS RÁPIDOS A PLATAFORMAS
+        // ==========================================
+        private void LoadPlatforms()
+        {
+            string platformsPath = Path.Combine(appDir, "platforms.json");
+            if (File.Exists(platformsPath))
+            {
+                try
+                {
+                    string json = File.ReadAllText(platformsPath, Encoding.UTF8);
+                    JavaScriptSerializer js = new JavaScriptSerializer();
+                    activePlatforms = js.Deserialize<List<StreamingPlatform>>(json);
+                    if (activePlatforms != null && activePlatforms.Count > 0) return;
+                }
+                catch { }
+            }
+
+            // Plataformas por defecto iniciales
+            activePlatforms = new List<StreamingPlatform>
+            {
+                new StreamingPlatform { Name = "Crunchyroll", Url = "https://www.crunchyroll.com", Icon = "🟠", ColorHex = "#ff640a" },
+                new StreamingPlatform { Name = "YouTube", Url = "https://www.youtube.com", Icon = "🔴", ColorHex = "#ff0000" },
+                new StreamingPlatform { Name = "Netflix", Url = "https://www.netflix.com", Icon = "🔴", ColorHex = "#e50914" },
+                new StreamingPlatform { Name = "Spotify", Url = "https://open.spotify.com", Icon = "🟢", ColorHex = "#1db954" }
+            };
+            SavePlatforms();
+        }
+
+        private void SavePlatforms()
+        {
+            try
+            {
+                string platformsPath = Path.Combine(appDir, "platforms.json");
+                JavaScriptSerializer js = new JavaScriptSerializer();
+                string json = js.Serialize(activePlatforms);
+                File.WriteAllText(platformsPath, json, Encoding.UTF8);
+            }
+            catch { }
+        }
+
+        private void AddPlatform(StreamingPlatform platform)
+        {
+            if (activePlatforms.Exists(p => p.Url.Equals(platform.Url, StringComparison.OrdinalIgnoreCase) || p.Name.Equals(platform.Name, StringComparison.OrdinalIgnoreCase)))
+            {
+                MessageBox.Show("Esta plataforma ya está agregada en tus accesos directos.", "Vinttea", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            activePlatforms.Add(platform);
+            SavePlatforms();
+            RenderPlatformTiles();
+            Log("[Plataformas] Se agregó " + platform.Name + " (" + platform.Url + ") a tus accesos directos.");
+        }
+
+        private void RemovePlatform(StreamingPlatform platform)
+        {
+            activePlatforms.Remove(platform);
+            SavePlatforms();
+            RenderPlatformTiles();
+            Log("[Plataformas] Se eliminó el acceso directo a " + platform.Name + ".");
+        }
+
+        private void RenderPlatformTiles()
+        {
+            flowPlatforms.SuspendLayout();
+            flowPlatforms.Controls.Clear();
+
+            if (activePlatforms.Count == 0)
+            {
+                Label lblEmpty = new Label
+                {
+                    Text = "No hay plataformas agregadas. Haz clic en '+ Agregar Plataforma' para añadir tus favoritas.",
+                    ForeColor = TextMuted,
+                    Font = new Font("Segoe UI", 8.5f, FontStyle.Italic),
+                    AutoSize = false,
+                    Size = new Size(530, 40),
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Margin = new Padding(10, 20, 10, 0)
+                };
+                flowPlatforms.Controls.Add(lblEmpty);
+                flowPlatforms.ResumeLayout();
+                return;
+            }
+
+            foreach (var plat in activePlatforms)
+            {
+                Button btn = new Button
+                {
+                    Text = plat.Icon + "  " + plat.Name,
+                    Size = new Size(130, 38),
+                    Margin = new Padding(0, 0, 8, 8),
+                    FlatStyle = FlatStyle.Flat,
+                    BackColor = Color.FromArgb(32, 38, 58),
+                    ForeColor = TextPrimary,
+                    Font = new Font("Segoe UI", 8.75f, FontStyle.Bold),
+                    Cursor = Cursors.Hand,
+                    Tag = plat
+                };
+                btn.FlatAppearance.BorderSize = 1;
+                btn.FlatAppearance.BorderColor = CardBorder;
+
+                btn.Click += (s, e) =>
+                {
+                    try
+                    {
+                        Log("[Plataformas] Abriendo " + plat.Name + " (" + plat.Url + ")...");
+                        Process.Start(plat.Url);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log("Error al abrir " + plat.Name + ": " + ex.Message);
+                    }
+                };
+
+                ContextMenuStrip menu = new ContextMenuStrip();
+                menu.Items.Add("▶ Abrir en Navegador", null, (s, e) => {
+                    try { Process.Start(plat.Url); } catch { }
+                });
+                menu.Items.Add("-");
+                menu.Items.Add("🗑️ Eliminar acceso directo", null, (s, e) => {
+                    RemovePlatform(plat);
+                });
+                btn.ContextMenuStrip = menu;
+
+                flowPlatforms.Controls.Add(btn);
+            }
+
+            flowPlatforms.ResumeLayout();
+        }
+
+        private void ShowAddPlatformDialog()
+        {
+            Form dlg = new Form();
+            dlg.Text = "Agregar Plataforma de Streaming";
+            dlg.Size = new Size(460, 520);
+            dlg.StartPosition = FormStartPosition.CenterParent;
+            dlg.FormBorderStyle = FormBorderStyle.FixedDialog;
+            dlg.MaximizeBox = false;
+            dlg.MinimizeBox = false;
+            dlg.BackColor = BgDark;
+            dlg.ForeColor = TextPrimary;
+            dlg.Font = new Font("Segoe UI", 9f);
+
+            Label lblTitle = new Label { Text = "SELECCIONA UNA PLATAFORMA PARA AGREGAR:", Location = new Point(16, 12), AutoSize = true, Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = AccentIndigo };
+            dlg.Controls.Add(lblTitle);
+
+            FlowLayoutPanel flowPresets = new FlowLayoutPanel { Location = new Point(16, 36), Size = new Size(412, 275), AutoScroll = true, BackColor = Color.Transparent };
+            dlg.Controls.Add(flowPresets);
+
+            foreach (var plat in CatalogPlatforms)
+            {
+                Button btnItem = new Button {
+                    Text = plat.Icon + "  " + plat.Name,
+                    Size = new Size(196, 42),
+                    Margin = new Padding(0, 0, 8, 8),
+                    FlatStyle = FlatStyle.Flat,
+                    BackColor = Color.FromArgb(24, 28, 43),
+                    ForeColor = TextPrimary,
+                    Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                    Cursor = Cursors.Hand
+                };
+                btnItem.FlatAppearance.BorderColor = CardBorder;
+                btnItem.Click += (s, e) => {
+                    AddPlatform(plat);
+                    dlg.Close();
+                };
+                flowPresets.Controls.Add(btnItem);
+            }
+
+            // Custom URL section
+            Panel customPanel = CreateCardPanel(16, 320, 412, 115);
+            dlg.Controls.Add(customPanel);
+
+            Label lblCustomTitle = new Label { Text = "O AGREGA OTRA URL PERSONALIZADA:", Location = new Point(12, 8), AutoSize = true, Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = TextMuted };
+            customPanel.Controls.Add(lblCustomTitle);
+
+            TextBox txtCustomName = new TextBox { Text = "Nombre del sitio (ej. Pluto TV)", Location = new Point(12, 32), Size = new Size(185, 24), BackColor = Color.FromArgb(15, 17, 26), ForeColor = TextMuted, BorderStyle = BorderStyle.FixedSingle };
+            txtCustomName.Enter += (s, e) => { if (txtCustomName.Text == "Nombre del sitio (ej. Pluto TV)") { txtCustomName.Text = ""; txtCustomName.ForeColor = TextPrimary; } };
+            customPanel.Controls.Add(txtCustomName);
+
+            TextBox txtCustomUrl = new TextBox { Text = "https://...", Location = new Point(205, 32), Size = new Size(195, 24), BackColor = Color.FromArgb(15, 17, 26), ForeColor = TextMuted, BorderStyle = BorderStyle.FixedSingle };
+            txtCustomUrl.Enter += (s, e) => { if (txtCustomUrl.Text == "https://...") { txtCustomUrl.Text = ""; txtCustomUrl.ForeColor = TextPrimary; } };
+            customPanel.Controls.Add(txtCustomUrl);
+
+            Button btnAddCustom = CreateButton("➕ Agregar sitio personalizado", 12, 68, 388, 34, AccentIndigo, Color.White);
+            btnAddCustom.Click += (s, e) => {
+                string name = txtCustomName.Text.Trim();
+                string url = txtCustomUrl.Text.Trim();
+                if (string.IsNullOrEmpty(name) || name == "Nombre del sitio (ej. Pluto TV)" || string.IsNullOrEmpty(url) || url == "https://...") {
+                    MessageBox.Show("Por favor ingresa un nombre y una URL válida.", "Vinttea", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                if (!url.StartsWith("http://") && !url.StartsWith("https://")) {
+                    url = "https://" + url;
+                }
+                AddPlatform(new StreamingPlatform { Name = name, Url = url, Icon = "🌐", ColorHex = "#818cf8" });
+                dlg.Close();
+            };
+            customPanel.Controls.Add(btnAddCustom);
+
+            Button btnClose = CreateButton("Cerrar", 175, 444, 100, 30, Color.FromArgb(32, 38, 58), TextPrimary);
+            btnClose.Click += (s, e) => dlg.Close();
+            dlg.Controls.Add(btnClose);
+
+            dlg.ShowDialog(this);
+        }
+
+        private void ShowDiagnosticDialog()
+        {
+            Form dlg = new Form();
+            dlg.Text = "Diagnóstico del Sistema - Vinttea";
+            dlg.Size = new Size(500, 360);
+            dlg.StartPosition = FormStartPosition.CenterParent;
+            dlg.FormBorderStyle = FormBorderStyle.FixedDialog;
+            dlg.MaximizeBox = false;
+            dlg.MinimizeBox = false;
+            dlg.BackColor = BgDark;
+            dlg.ForeColor = TextPrimary;
+            dlg.Font = new Font("Segoe UI", 9.25f);
+
+            Panel card = CreateCardPanel(16, 16, 452, 245);
+            dlg.Controls.Add(card);
+
+            Label lblTitle = new Label { Text = "ESTADO DEL ENTORNO Y DEPENDENCIAS", Location = new Point(14, 12), AutoSize = true, Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = AccentIndigo };
+            card.Controls.Add(lblTitle);
+
+            Label lblNode = new Label {
+                Location = new Point(16, 42), AutoSize = true,
+                Text = isNodeInstalled ? "✔ Node.js: Instalado y listo" : "❌ Node.js: No detectado en este equipo",
+                ForeColor = isNodeInstalled ? AccentGreen : AccentRed,
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold)
+            };
+            card.Controls.Add(lblNode);
+
+            Label lblPnpm = new Label {
+                Location = new Point(16, 70), AutoSize = true,
+                Text = isPnpmInstalled ? "✔ pnpm: Instalado" : "⚠ pnpm: No detectado (se usará npx pnpm)",
+                ForeColor = isPnpmInstalled ? AccentGreen : Color.Orange,
+                Font = new Font("Segoe UI", 9.5f)
+            };
+            card.Controls.Add(lblPnpm);
+
+            Label lblBuild = new Label {
+                Location = new Point(16, 98), AutoSize = true,
+                Text = isProjectBuilt ? "✔ Paquetes de Vinttea: Compilados listos" : "❌ Paquetes de Vinttea: Pendiente de compilar",
+                ForeColor = isProjectBuilt ? AccentGreen : AccentRed,
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold)
+            };
+            card.Controls.Add(lblBuild);
+
+            Button btnFix = CreateButton("⚡ Instalar / Reparar Requisitos", 16, 140, 420, 38, AccentIndigo, Color.White);
+            btnFix.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            btnFix.Click += (s, e) => {
+                btnFix.Enabled = false;
+                btnFix.Text = "Configurando requisitos...";
+                FixRequirements(() => {
+                    if (dlg.IsHandleCreated) {
+                        dlg.Invoke(new Action(() => {
+                            lblNode.Text = isNodeInstalled ? "✔ Node.js: Instalado y listo" : "❌ Node.js: No detectado";
+                            lblNode.ForeColor = isNodeInstalled ? AccentGreen : AccentRed;
+                            lblPnpm.Text = isPnpmInstalled ? "✔ pnpm: Instalado" : "⚠ pnpm: No detectado";
+                            lblPnpm.ForeColor = isPnpmInstalled ? AccentGreen : Color.Orange;
+                            lblBuild.Text = isProjectBuilt ? "✔ Paquetes de Vinttea: Compilados listos" : "❌ Paquetes: Pendiente";
+                            lblBuild.ForeColor = isProjectBuilt ? AccentGreen : AccentRed;
+                            btnFix.Enabled = true;
+                            btnFix.Text = "⚡ Instalar / Reparar Requisitos";
+                        }));
+                    }
+                });
+            };
+            card.Controls.Add(btnFix);
+
+            Button btnShortcut = CreateButton("📌 Crear acceso directo en el Escritorio", 16, 190, 420, 34, Color.FromArgb(32, 38, 58), TextPrimary);
+            btnShortcut.Click += (s, e) => CreateDesktopShortcut();
+            card.Controls.Add(btnShortcut);
+
+            Button btnClose = CreateButton("Cerrar", 200, 275, 100, 32, Color.FromArgb(32, 38, 58), TextPrimary);
+            btnClose.Click += (s, e) => dlg.Close();
+            dlg.Controls.Add(btnClose);
+
+            dlg.ShowDialog(this);
         }
 
         private void CreateDesktopShortcut()

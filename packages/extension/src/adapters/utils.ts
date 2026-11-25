@@ -246,14 +246,13 @@ function removeVirtualFullscreen(): void {
   document.body?.classList.remove('vinttea-fs-body-lock');
 }
 
-/** Toggles true edge-to-edge fullscreen showing strictly the video covering the screen. */
+/** Toggles fullscreen: triggers player controls or sends key 'f'. */
 export function toggleReliableFullscreen(
   videoEl: HTMLVideoElement | null,
   containerEl?: HTMLElement | null,
   fsBtnSelectors: string[] = [],
   forceState?: number // 1: enter, 0: exit
 ): void {
-  ensureFsStyle();
   const isCurrentlyFs = isFullscreenActive();
   const shouldEnter = forceState !== undefined ? forceState === 1 : !isCurrentlyFs;
 
@@ -265,39 +264,19 @@ export function toggleReliableFullscreen(
     } else if ((document as Document & { webkitFullscreenElement?: Element | null }).webkitFullscreenElement) {
       (document as Document & { webkitExitFullscreen?: () => void }).webkitExitFullscreen?.();
     }
-    chrome.runtime.sendMessage({ type: 'vinttea_window_fullscreen', fullscreen: false }).catch(() => {});
     return;
   }
 
-  // 1. Enter Edge-to-Edge DOM Fullscreen (breaks out of all containers)
-  const targetEl = containerEl || videoEl || document.querySelector<HTMLVideoElement>('video');
-  if (targetEl) {
-    if (containerEl) {
-      containerEl.classList.add('vinttea-player-fullscreen');
-    } else {
-      targetEl.classList.add('vinttea-video-fullscreen');
-    }
-
-    let ancestor = targetEl.parentElement;
-    while (ancestor && ancestor !== document.body && ancestor !== document.documentElement) {
-      ancestor.classList.add('vinttea-fs-ancestor');
-      ancestor = ancestor.parentElement;
-    }
-
-    document.documentElement.classList.add('vinttea-fs-body-lock');
-    document.body?.classList.add('vinttea-fs-body-lock');
-  }
-
-  // 2. Also simulate player's internal button / key
+  // 1. Wake player controls and simulate native player fullscreen button
   wakePlayerControls(containerEl || videoEl || undefined);
   if (fsBtnSelectors.length > 0) {
     const btn = findInteractiveButton(fsBtnSelectors, true);
     if (btn) {
       clickElementSafely(btn);
+      return;
     }
   }
-  simulateKey('f', 'KeyF', 70);
 
-  // 3. Request window-level fullscreen from background script
-  chrome.runtime.sendMessage({ type: 'vinttea_window_fullscreen', fullscreen: true }).catch(() => {});
+  // 2. Simulate native 'f' key on the player
+  simulateKey('f', 'KeyF', 70);
 }

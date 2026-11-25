@@ -55,6 +55,15 @@ function handleTogglePcMute() {
   exec('powershell -NoProfile -Command "(New-Object -ComObject WScript.Shell).SendKeys([char]173)"', () => {});
 }
 
+function handleSendKeyF() {
+  if (process.platform !== 'win32') return;
+  const psCmd =
+    'powershell -NoProfile -Command "$w = New-Object -ComObject WScript.Shell; foreach ($t in @(\'Crunchyroll\', \'YouTube\', \'Netflix\', \'chrome\', \'brave\', \'msedge\', \'firefox\', \'opera\')) { if ($w.AppActivate($t)) { break } }; Start-Sleep -Milliseconds 40; $w.SendKeys(\'f\')"';
+  exec(psCmd, (err) => {
+    if (err) server.log.warn({ err }, 'Error sending SendKeys f');
+  });
+}
+
 function updateBatteryStatus(): Promise<BatteryState | undefined> {
   return new Promise((resolve) => {
     if (process.platform !== 'win32') {
@@ -359,6 +368,11 @@ export async function startServer(port: number = DEFAULT_PORT) {
                 break;
               } else if (msg.action === 'togglePcMute') {
                 handleTogglePcMute();
+                break;
+              } else if (msg.action === 'toggleFullscreen') {
+                handleSendKeyF();
+                // Also forward to extension for web-side handling
+                broadcastToExtensions(msg);
                 break;
               }
 
